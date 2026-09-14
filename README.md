@@ -1,5 +1,9 @@
 # 💧 DripsLens
 
+[![CI](https://github.com/your-username/drips-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/drips-lens/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 **DripsLens** aggregates, caches, and serves data about [Drips Wave](https://drips.network/wave/stellar/repos) (Stellar Program) approved repositories — open issues, contributor activity, point values, and on-chain verification — through a clean REST API and a minimal dashboard.
 
 > Part of the Drips Wave Stellar Program ecosystem. Built as meta-tooling: it makes the Wave itself searchable and trackable.
