@@ -22,9 +22,11 @@
 ## Quick start (Docker)
 
 ```bash
-cp .env.example .env        # optional: add GITHUB_TOKEN
+cp .env.example .env        # GITHUB_TOKEN is required — see the note below
 docker compose up --build
 ```
+
+> **`GITHUB_TOKEN` is required — this is not optional for real operation.** Unauthenticated GitHub API calls are capped at 60 requests/hour. The 6-hour refresh cycle makes 3–5 calls per repo, and Stellar account discovery adds 2 more calls per repo — so without a token the refresh hits rate limits and fails almost immediately. Generate a token (no scopes needed to read public repos) and put it in `.env` before starting the app.
 
 - Dashboard: http://localhost:8000/
 - API docs (Swagger): http://localhost:8000/docs
@@ -35,7 +37,7 @@ docker compose up --build
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env        # SQLite works out of the box; Redis optional
+cp .env.example .env        # GITHUB_TOKEN is required — see note in Quick start; SQLite works out of the box, Redis optional
 alembic upgrade head        # or skip: tables auto-create on startup
 uvicorn app.main:app --reload
 ```
