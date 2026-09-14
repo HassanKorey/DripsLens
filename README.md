@@ -44,6 +44,20 @@ uvicorn app.main:app --reload
 
 Without Postgres/Redis the app falls back to SQLite and an in-process cache — handy for hacking.
 
+## Deployment
+
+This project is deployable on [Railway](https://railway.app). A `railway.toml` is included (Dockerfile builder, `/health` healthcheck), with a `Procfile` as a fallback start command.
+
+Required environment variables:
+
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Postgres connection string, e.g. `postgresql+psycopg2://user:pass@host:5432/dripslens` |
+| `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0` (omit for in-process cache) |
+| `GITHUB_TOKEN` | GitHub token (required — see the rate-limit note in Quick start) |
+
+Set these in the Railway service settings; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`.
+
 ## API overview
 
 | Endpoint | Description |
