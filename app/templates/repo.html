@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ repo.full_name }}{% endblock %}
+{% block content %}
+<section>
+  <h2><a href="{{ repo.html_url }}" target="_blank" rel="noopener">{{ repo.full_name }}</a> ↗</h2>
+  <p class="muted">{{ repo.description or "No description." }}</p>
+  <div class="stats">
+    <div class="card"><span class="num">{{ repo.point_multiplier|int }}x</span><span class="label">Multiplier</span></div>
+    <div class="card"><span class="num">{{ repo.health_score | round(1) if repo.health_score is not none else "—" }}</span><span class="label">Health</span></div>
+    <div class="card"><span class="num">{{ repo.open_issues_count }}</span><span class="label">Open issues</span></div>
+    <div class="card"><span class="num">{{ "✓" if repo.stellar_verified else "?" }}</span><span class="label">Stellar verified</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Open issues</h2>
+  <table>
+    <thead><tr><th>Issue</th><th>Complexity</th><th>Points</th><th>Claimed</th></tr></thead>
+    <tbody>
+      {% for i in issues %}
+      <tr>
+        <td><a href="{{ i.html_url }}" target="_blank" rel="noopener">{{ i.title }}</a></td>
+        <td>{{ i.complexity or "—" }}</td>
+        <td>{{ i.points or "—" }}</td>
+        <td>{{ "yes" if i.claimed else "no" }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No open issues.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

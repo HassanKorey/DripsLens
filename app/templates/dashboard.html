@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<section class="stats">
+  <div class="card"><span class="num">{{ stats.repos }}</span><span class="label">Approved repos</span></div>
+  <div class="card"><span class="num">{{ stats.open_issues }}</span><span class="label">Open issues</span></div>
+  <div class="card"><span class="num">{{ stats.verified }}</span><span class="label">Stellar verified</span></div>
+</section>
+
+<section>
+  <h2>Top repos <span class="muted">by health score</span></h2>
+  <table>
+    <thead>
+      <tr><th>Repo</th><th>Language</th><th>Multiplier</th><th>Open issues</th><th>Health</th><th>Verified</th></tr>
+    </thead>
+    <tbody>
+      {% for r in repos %}
+      <tr>
+        <td><a href="/repos/view/{{ r.id }}">{{ r.full_name }}</a></td>
+        <td>{{ r.language or "—" }}</td>
+        <td>{{ r.point_multiplier|int }}x</td>
+        <td>{{ r.open_issues_count }}</td>
+        <td><span class="badge health">{{ r.health_score | round(1) if r.health_score is not none else "—" }}</span></td>
+        <td>{% if r.stellar_verified %}<span class="badge ok">✓</span>{% elif r.stellar_verified == false %}<span class="badge bad">✗</span>{% else %}<span class="badge muted">?</span>{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="muted">No data yet — the refresh engine will populate shortly.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Open issues <span class="muted">unclaimed, highest value first</span></h2>
+  <table>
+    <thead>
+      <tr><th>Issue</th><th>Repo</th><th>Complexity</th><th>Points</th></tr>
+    </thead>
+    <tbody>
+      {% for i in issues %}
+      <tr>
+        <td><a href="{{ i.html_url }}" target="_blank" rel="noopener">{{ i.title }}</a></td>
+        <td>{{ i.repo.full_name if i.repo else "—" }}</td>
+        <td>{{ i.complexity or "—" }}</td>
+        <td><span class="badge points">{{ i.points or "—" }}</span></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No open issues tracked yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
