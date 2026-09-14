@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}DripsLens{% endblock %} — Drips Wave Explorer</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">💧 DripsLens</a>
+    <nav>
+      <a href="/">Repos</a>
+      <a href="/docs">API Docs</a>
+      <a href="https://drips.network/wave/stellar/repos">Drips Wave ↗</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <span>DripsLens v{{ version }} — community tooling for the Drips Wave Stellar Program</span>
+  </footer>
+</body>
+</html>
