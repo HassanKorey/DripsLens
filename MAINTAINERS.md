@@ -4,7 +4,7 @@ Current maintainers of DripsLens:
 
 | Name | GitHub | Role | Response SLA |
 |---|---|---|---|
-| *Your Name* | [@your-handle](https://github.com/your-handle) | Lead maintainer | 24–48h |
+| *hedun* | [@HassanKorey](https://github.com/HassanKorey) | Lead maintainer | 24–48h |
 
 ## Responsibilities
 

@@ -1,6 +1,6 @@
 # 💧 DripsLens
 
-[![CI](https://github.com/your-username/drips-lens/actions/workflows/ci.yml/badge.svg)](https://github.com/your-username/drips-lens/actions/workflows/ci.yml)
+[![CI](https://github.com/HassanKorey/DripsLens/actions/workflows/ci.yml/badge.svg)](https://github.com/HassanKorey/DripsLens/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -28,9 +28,9 @@ docker compose up --build
 
 > **`GITHUB_TOKEN` is required — this is not optional for real operation.** Unauthenticated GitHub API calls are capped at 60 requests/hour. The 6-hour refresh cycle makes 3–5 calls per repo, and Stellar account discovery adds 2 more calls per repo — so without a token the refresh hits rate limits and fails almost immediately. Generate a token (no scopes needed to read public repos) and put it in `.env` before starting the app.
 
-- Dashboard: http://localhost:8000/
-- API docs (Swagger): http://localhost:8000/docs
-- Health: http://localhost:8000/health
+- Dashboard: `/`
+- API docs (Swagger): `/docs`
+- Health: `/health`
 
 ## Local development
 

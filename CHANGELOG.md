@@ -20,5 +20,5 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 - Docker Compose stack: Postgres + Redis + app
 - Community health files: README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, MAINTAINERS, LICENSE
 
-[Unreleased]: https://github.com/your-org/drips-lens/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/your-org/drips-lens/releases/tag/v0.1.0
+[Unreleased]: https://github.com/HassanKorey/DripsLens/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/HassanKorey/DripsLens/releases/tag/v0.1.0
