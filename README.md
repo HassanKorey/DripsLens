@@ -46,7 +46,7 @@ Without Postgres/Redis the app falls back to SQLite and an in-process cache — 
 
 ## Deployment
 
-This project is deployable on [Railway](https://railway.app). A `railway.toml` is included (Dockerfile builder, `/health` healthcheck), with a `Procfile` as a fallback start command.
+This project is deployable on [Render](https://render.com). A `render.yaml` blueprint is included — it defines a web service (Python runtime, `$PORT`-aware start command with migrations run before boot) and a managed Postgres database. Use **New → Blueprint** in the Render dashboard and it will pick up the file automatically.
 
 Required environment variables:
 
@@ -56,7 +56,7 @@ Required environment variables:
 | `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0` (omit for in-process cache) |
 | `GITHUB_TOKEN` | GitHub token (required — see the rate-limit note in Quick start) |
 
-Set these in the Railway service settings; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`.
+Set these in the Render dashboard — a Blueprint deploy prompts you for the `sync: false` variables on first deploy; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`. `DATABASE_URL` is wired automatically to the `drips-lens-db` database via the blueprint.
 
 Optional variables:
 
