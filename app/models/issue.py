@@ -23,7 +23,7 @@ class Issue(Base):
     repo_id: Mapped[int] = mapped_column(
         BigInteger, ForeignKey("repos.id", ondelete="CASCADE"), index=True
     )
-    number: Mapped[int] = mapped_column(Integer)
+    number: Mapped[int] = mapped_column(BigInteger)
     title: Mapped[str] = mapped_column(String(512))
     body: Mapped[str | None] = mapped_column(JSON, nullable=True)  # truncated markdown
     state: Mapped[str] = mapped_column(String(16), default="open", index=True)

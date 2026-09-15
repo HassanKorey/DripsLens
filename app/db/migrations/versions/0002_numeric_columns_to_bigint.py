@@ -21,7 +21,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 # (table, columns) converted from Integer to BigInteger.
-# "number" (per-repo issue number) intentionally stays Integer.
+# "number" (per-repo issue number) intentionally stayed Integer here; it is
+# converted to BigInteger separately in migration 0003 for future-proofing.
 _COLUMNS: dict[str, list[str]] = {
     "repos": ["id", "open_issues_count", "stars", "forks"],
     "issues": ["id", "github_id", "repo_id"],
