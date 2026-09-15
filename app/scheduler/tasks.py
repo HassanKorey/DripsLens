@@ -42,14 +42,14 @@ def classify_complexity(labels: list[str]) -> str | None:
 
 
 def compute_health_score(
-    open_issues: int,
+    open_issues: int | None,
     has_ci: bool | None,
     last_commit_at: datetime | None,
     readme_score: float | None,
 ) -> float:
     """Repo Health Score (0..100): open issues available, CI, recency, README."""
     # Issue availability (0..40): reward having work available, cap at 20
-    issue_component = min(open_issues, 20) / 20 * 40
+    issue_component = min(open_issues or 0, 20) / 20 * 40
 
     # CI (0..15)
     ci_component = 15.0 if has_ci else (7.5 if has_ci is None else 0.0)
@@ -72,6 +72,13 @@ def upsert_repo(db, item: drips_scraper.DripsRepo, signals: github_fetcher.RepoS
     if repo is None:
         repo = Repo(full_name=item.full_name, owner=item.owner, name=item.name)
         db.add(repo)
+        # Flush immediately so repo.id is populated (Postgres assigns it on
+        # INSERT). Without this, a newly-created repo's id stays None until
+        # commit, and any Issue rows created against it in the same
+        # transaction (see sync_issues) would be inserted with repo_id=NULL,
+        # violating the BigInteger/foreign-key column and raising
+        # "integer out of range" / not-null errors.
+        db.flush()
 
     repo.owner = item.owner
     repo.name = item.name
@@ -94,6 +101,12 @@ def upsert_repo(db, item: drips_scraper.DripsRepo, signals: github_fetcher.RepoS
 
 def sync_issues(db, repo: Repo, gh_issues: list[github_fetcher.GitHubIssue]) -> None:
     """Upsert GitHub issues for a repo, classifying complexity from labels."""
+    if repo.id is None:
+        # Should not happen (upsert_repo flushes new repos to assign an id),
+        # but guard against inserting issues with a NULL repo_id, which the
+        # BigInteger foreign-key column rejects at the DB level.
+        logger.warning("Skipping issue sync for %s: repo has no id yet", repo.full_name)
+        return
     for ghi in gh_issues:
         issue = db.query(Issue).filter(Issue.github_id == ghi.github_id).first()
         if issue is None:
