@@ -58,6 +58,12 @@ Required environment variables:
 
 Set these in the Railway service settings; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`.
 
+Optional variables:
+
+| Variable | Purpose |
+|---|---|
+| `ADMIN_TOKEN` | When set, `/admin/refresh*` requires an `X-Admin-Token: <value>` header. Leave unset only if your deployment is private. |
+
 ## API overview
 
 | Endpoint | Description |
@@ -70,6 +76,8 @@ Set these in the Railway service settings; they are injected as env vars at runt
 | `GET /issues` | Open issues (`complexity`, `claimed`, `repo`, `min_points`, pagination) |
 | `GET /issues/stats` | Claimed/unclaimed counts, potential points |
 | `GET /contributors/top` | Leaderboard ranked by points |
+| `POST /admin/refresh` | Trigger a full data refresh on demand (send `X-Admin-Token` header when `ADMIN_TOKEN` is set) |
+| `GET /admin/refresh/status` | Refresh job status — next scheduled run, manual job pending |
 
 ## Architecture
 

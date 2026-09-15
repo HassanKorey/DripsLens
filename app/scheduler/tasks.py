@@ -6,6 +6,7 @@ every REFRESH_INTERVAL_HOURS (default 6h) thereafter.
 """
 
 import logging
+import threading
 from datetime import UTC, datetime
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -235,6 +236,32 @@ def refresh_repos() -> dict:
 
     logger.info("Refresh cycle complete: %s", stats)
     return stats
+
+
+def trigger_manual_refresh() -> str:
+    """Kick off one immediate refresh cycle without waiting for the interval.
+
+    Used to backfill repos whose data failed to save (e.g. DB errors) or to
+    re-fetch on demand. When the APScheduler is running, schedules a deduped
+    one-shot job (replace_existing keeps only one queued). Otherwise — e.g.
+    SCHEDULER_ENABLED=false or no event loop — runs refresh_repos in a daemon
+    background thread instead. Returns an identifier for what was started.
+    """
+    if scheduler.running:
+        scheduler.add_job(
+            refresh_repos,
+            "date",
+            run_date=datetime.now(UTC),
+            id="refresh-manual",
+            replace_existing=True,
+            max_instances=1,
+        )
+        logger.info("Manual refresh scheduled (job refresh-manual)")
+        return "refresh-manual"
+
+    threading.Thread(target=refresh_repos, name="manual-refresh", daemon=True).start()
+    logger.info("Manual refresh started in background thread (scheduler not running)")
+    return "refresh-thread"
 
 
 def start_scheduler() -> AsyncIOScheduler:

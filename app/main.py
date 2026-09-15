@@ -10,7 +10,7 @@ from app import __version__
 from app.cache import redis_client as cache
 from app.config import settings
 from app.db.database import create_all
-from app.routers import contributors, dashboard, health, issues, repos
+from app.routers import admin, contributors, dashboard, health, issues, repos
 from app.scheduler.tasks import start_scheduler, stop_scheduler
 
 logging.basicConfig(
@@ -39,6 +39,7 @@ app = FastAPI(
 )
 
 app.include_router(health.router)
+app.include_router(admin.router)
 app.include_router(repos.router)
 app.include_router(issues.router)
 app.include_router(contributors.router)
