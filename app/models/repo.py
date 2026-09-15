@@ -2,16 +2,20 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, Integer, String, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+# SQLite auto-generates IDs only for INTEGER primary keys; Postgres gets real BIGINT.
+BigIntPk = BigInteger().with_variant(Integer, "sqlite")
 
 
 class Repo(Base):
     __tablename__ = "repos"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # BigInteger: internal IDs and GitHub-derived counts can exceed int32 (2,147,483,647)
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True)
     full_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)  # "owner/repo"
     owner: Mapped[str] = mapped_column(String(255))
     name: Mapped[str] = mapped_column(String(255))
@@ -27,9 +31,9 @@ class Repo(Base):
     stellar_verified: Mapped[bool | None] = mapped_column(Boolean, nullable=True)  # None = unknown
 
     # Health / activity signals
-    open_issues_count: Mapped[int] = mapped_column(Integer, default=0)
-    stars: Mapped[int] = mapped_column(Integer, default=0)
-    forks: Mapped[int] = mapped_column(Integer, default=0)
+    open_issues_count: Mapped[int] = mapped_column(BigInteger, default=0)
+    stars: Mapped[int] = mapped_column(BigInteger, default=0)
+    forks: Mapped[int] = mapped_column(BigInteger, default=0)
     last_commit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_push_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     has_ci: Mapped[bool | None] = mapped_column(Boolean, nullable=True)

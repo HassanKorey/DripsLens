@@ -2,10 +2,13 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
+
+# SQLite auto-generates IDs only for INTEGER primary keys; Postgres gets real BIGINT.
+BigIntPk = BigInteger().with_variant(Integer, "sqlite")
 
 # Drips Wave complexity tiers -> point values
 COMPLEXITY_POINTS = {"trivial": 100, "medium": 150, "high": 200}
@@ -14,10 +17,11 @@ COMPLEXITY_POINTS = {"trivial": 100, "medium": 150, "high": 200}
 class Issue(Base):
     __tablename__ = "issues"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    github_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    # BigInteger: GitHub's global numeric IDs (github_id) already exceed int32 (2,147,483,647)
+    id: Mapped[int] = mapped_column(BigIntPk, primary_key=True)
+    github_id: Mapped[int] = mapped_column(BigInteger, unique=True, index=True)
     repo_id: Mapped[int] = mapped_column(
-        ForeignKey("repos.id", ondelete="CASCADE"), index=True
+        BigInteger, ForeignKey("repos.id", ondelete="CASCADE"), index=True
     )
     number: Mapped[int] = mapped_column(Integer)
     title: Mapped[str] = mapped_column(String(512))
