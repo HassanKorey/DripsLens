@@ -4,6 +4,12 @@
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+## 🌐 Live Deployment
+
+- 🌐 **Live Demo**: https://dripslens.onrender.com
+- 📖 **API Docs**: https://dripslens.onrender.com/docs
+- ❤️ **Health Check**: https://dripslens.onrender.com/health
+
 **DripsLens** aggregates, caches, and serves data about [Drips Wave](https://drips.network/wave/stellar/repos) (Stellar Program) approved repositories — open issues, contributor activity, point values, and on-chain verification — through a clean REST API and a minimal dashboard.
 
 > Part of the Drips Wave Stellar Program ecosystem. Built as meta-tooling: it makes the Wave itself searchable and trackable.
@@ -16,7 +22,7 @@
 | **Issue Tracker** | All open Wave issues in one place, tiered by complexity (Trivial/Medium/High = 100/150/200 pts), claimed vs unclaimed |
 | **Contributor Leaderboard** | Ranks contributors by merged PRs and points across Wave repos |
 | **Repo Health Score** | 0–100 score per repo: open issues, CI status, last commit, README quality |
-| **Stellar Verification** | Read-only Horizon API check of each repo's linked Stellar account/contract |
+| **Stellar Verification** | Discovers Stellar accounts two ways — scanning repos for `stellar.toml` files and scanning README files for Stellar address patterns — then verifies each discovered account via the read-only Stellar Horizon API |
 | **Data Refresh Engine** | APScheduler re-fetches everything every 6 hours — zero manual upkeep |
 
 ## Quick start (Docker)
@@ -44,9 +50,17 @@ uvicorn app.main:app --reload
 
 Without Postgres/Redis the app falls back to SQLite and an in-process cache — handy for hacking.
 
+> The production instance is live at **https://dripslens.onrender.com** — use it to explore the API without running anything locally. Local development still uses `localhost`.
+
 ## Deployment
 
-This project is deployable on [Render](https://render.com). A `render.yaml` blueprint is included — it defines a web service (Python runtime, `$PORT`-aware start command with migrations run before boot) and a managed Postgres database. Use **New → Blueprint** in the Render dashboard and it will pick up the file automatically.
+DripsLens is deployed on **[Render](https://render.com)**.
+
+- **Platform**: Render
+- **Live URL**: https://dripslens.onrender.com
+- **Auto-deploy**: every push to `main` triggers a deploy automatically
+
+A `render.yaml` blueprint is included — it defines a web service (Python runtime, `$PORT`-aware start command with migrations run before boot) and a managed Postgres database. Use **New → Blueprint** in the Render dashboard and it will pick up the file automatically.
 
 Required environment variables:
 
@@ -54,6 +68,7 @@ Required environment variables:
 |---|---|
 | `DATABASE_URL` | Postgres connection string, e.g. `postgresql+psycopg2://user:pass@host:5432/dripslens` |
 | `GITHUB_TOKEN` | GitHub token (required — see the rate-limit note in Quick start) |
+| `ADMIN_TOKEN` | Protects `/admin/refresh*` — requests must send an `X-Admin-Token: <value>` header |
 
 Set these in the Render dashboard — a Blueprint deploy prompts you for the `sync: false` variables on first deploy; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`. `DATABASE_URL` is wired automatically to the `drips-lens-db` database via the blueprint.
 
@@ -61,23 +76,25 @@ Optional variables:
 
 | Variable | Purpose |
 |---|---|
-| `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0`. Optional — when unset (or Redis is unreachable) the app serves cacheable endpoints straight from Postgres, just slower. |
-| `ADMIN_TOKEN` | When set, `/admin/refresh*` requires an `X-Admin-Token: <value>` header. Leave unset only if your deployment is private. |
+| `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0`. **Optional** — if not set (or Redis is unreachable), the app runs without Redis caching and queries the database directly on every request. |
 
-## API overview
+## API Endpoints
 
-| Endpoint | Description |
-|---|---|
-| `GET /health` | App version + uptime |
-| `GET /repos` | List/filter repos (`language`, `multiplier`, `min_health`, `q`, `verified`, `sort`, pagination) |
-| `GET /repos/meta` | Aggregate stats for dashboards |
-| `GET /repos/{id_or_owner/repo}` | Repo detail |
-| `GET /repos/{id}/health` | Health score + component breakdown |
-| `GET /issues` | Open issues (`complexity`, `claimed`, `repo`, `min_points`, pagination) |
-| `GET /issues/stats` | Claimed/unclaimed counts, potential points |
-| `GET /contributors/top` | Leaderboard ranked by points |
-| `POST /admin/refresh` | Trigger a full data refresh on demand (send `X-Admin-Token` header when `ADMIN_TOKEN` is set) |
-| `GET /admin/refresh/status` | Refresh job status — next scheduled run, manual job pending |
+All endpoints below are live at https://dripslens.onrender.com.
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/health` | GET | App health status and uptime |
+| `/docs` | GET | Interactive API documentation |
+| `/repos` | GET | List all Wave approved repos |
+| `/repos/{id}` | GET | Single repo details |
+| `/repos/{id}/health` | GET | Repo health score |
+| `/repos/meta` | GET | Aggregate stats for dashboards |
+| `/issues` | GET | List all open Wave issues |
+| `/issues/stats` | GET | Claimed/unclaimed counts, potential points |
+| `/contributors/top` | GET | Contributor leaderboard |
+| `/admin/refresh` | POST | Trigger manual data refresh (auth required — send `X-Admin-Token` header) |
+| `/admin/refresh/status` | GET | Refresh job status — next scheduled run, manual job pending |
 
 ## Architecture
 
