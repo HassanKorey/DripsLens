@@ -47,7 +47,7 @@ def create_all() -> None:
 def _ensure_database_ready() -> None:
     """Block startup until the database answers a trivial query.
 
-    Railway starts the DB and app containers nearly simultaneously, so the app
+    Render starts the DB and app containers nearly simultaneously, so the app
     often boots before Postgres accepts connections. Retry a lightweight
     connection a few times instead of crashing the container on first boot.
     """
