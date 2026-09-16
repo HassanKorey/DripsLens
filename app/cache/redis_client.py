@@ -26,22 +26,47 @@ except ImportError:  # pragma: no cover
 
 _redis: Any | None = None
 _redis_started = False
+_redis_retry_after = 0.0  # monotonic time before the next reconnection attempt
+
+# When Redis is unreachable, back off before trying to reconnect so each
+# request doesn't pay a connection timeout.
+_REDIS_RETRY_COOLDOWN_SECONDS = 30.0
 
 
 async def get_redis() -> Any | None:
-    """Lazily connect to Redis; returns None when unavailable."""
-    global _redis, _redis_started
+    """Lazily connect to Redis; returns None when unavailable.
+
+    Never raises: if the connection attempt fails (server down, bad URL,
+    auth error, DNS failure...), the exception is swallowed and None is
+    returned so callers fall back to the in-process cache (or skip caching
+    entirely). Failed attempts trigger a cooldown during which None is
+    returned without retrying, so the app keeps running — just without
+    the Redis cache layer.
+    """
+    global _redis, _redis_started, _redis_retry_after
     if not _REDIS_AVAILABLE or not settings.redis_url:
         return None
-    if not _redis_started:
-        _redis_started = True
-        try:
-            _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
-            await _redis.ping()
-            logger.info("Redis cache connected at %s", settings.redis_url)
-        except Exception as exc:
-            logger.warning("Redis unavailable (%s); using in-process cache", exc)
-            _redis = None
+    if _redis is not None:
+        return _redis
+    if _redis_started:
+        # No client yet: either still connecting or cooling down after a
+        # failed attempt.
+        if time.monotonic() < _redis_retry_after:
+            return None
+    _redis_started = True
+    try:
+        client = aioredis.from_url(settings.redis_url, decode_responses=True)
+        await client.ping()
+    except Exception as exc:
+        logger.warning(
+            "Redis unavailable (%s); continuing without cache layer", exc
+        )
+        _redis = None
+        _redis_retry_after = time.monotonic() + _REDIS_RETRY_COOLDOWN_SECONDS
+        return None
+    _redis = client
+    _redis_retry_after = 0.0
+    logger.info("Redis cache connected at %s", settings.redis_url)
     return _redis
 
 
@@ -112,7 +137,7 @@ def invalidate_prefix_sync(prefix: str) -> None:
 
 
 async def close_redis() -> None:
-    global _redis, _redis_started
+    global _redis, _redis_started, _redis_retry_after
     if _redis is not None:
         try:
             await _redis.close()
@@ -120,3 +145,4 @@ async def close_redis() -> None:
             pass
     _redis = None
     _redis_started = False
+    _redis_retry_after = 0.0

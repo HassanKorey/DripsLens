@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func as safunc
 from sqlalchemy.orm import Session
 
-from app.cache.redis_client import cache_get, cache_set
+from app.cache.redis_client import cache_get, cache_set, get_redis
 from app.db.database import get_db
 from app.models import Repo
 from app.scheduler.tasks import compute_health_score
@@ -66,8 +66,10 @@ async def list_repos(
     cache_key = (
         f"dripslens:repos:list:{language}:{multiplier}:{min_health}:{q}:{verified}:{sort}:{order}:{page}:{per_page}"
     )
-    if (cached := await cache_get(cache_key)) is not None:
-        return cached
+    # Skip caching entirely when Redis is unavailable — query the DB directly.
+    if await get_redis() is not None:
+        if (cached := await cache_get(cache_key)) is not None:
+            return cached
 
     query = db.query(Repo).filter(Repo.is_active.is_(True))
     if language:
@@ -101,7 +103,8 @@ async def list_repos(
         "per_page": per_page,
         "items": [_repo_out(r) for r in rows],
     }
-    await cache_set(cache_key, payload)
+    if await get_redis() is not None:
+        await cache_set(cache_key, payload)
     return payload
 
 

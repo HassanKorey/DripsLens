@@ -9,8 +9,9 @@ services:
         fromDatabase:
           name: drips-lens-db
           property: connectionString
-      - key: REDIS_URL
-        sync: false
+      # REDIS_URL is optional: when unset the app serves cacheable endpoints
+      # straight from Postgres (just slower). Add it manually in the Render
+      # dashboard to enable the Redis cache layer.
       - key: GITHUB_TOKEN
         sync: false
       - key: ADMIN_TOKEN

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func as safunc
 from sqlalchemy.orm import Session, joinedload
 
-from app.cache.redis_client import cache_get, cache_set
+from app.cache.redis_client import cache_get, cache_set, get_redis
 from app.db.database import get_db
 from app.models import Issue, Repo
 
@@ -48,8 +48,10 @@ async def list_issues(
 ):
     """All open Wave issues in one place, filterable by complexity (100/150/200 pts)."""
     cache_key = f"dripslens:issues:list:{complexity}:{claimed}:{repo}:{min_points}:{q}:{sort}:{order}:{page}:{per_page}"
-    if (cached := await cache_get(cache_key)) is not None:
-        return cached
+    # Skip caching entirely when Redis is unavailable — query the DB directly.
+    if await get_redis() is not None:
+        if (cached := await cache_get(cache_key)) is not None:
+            return cached
 
     query = db.query(Issue).options(joinedload(Issue.repo)).filter(Issue.state == "open")
     if complexity:
@@ -84,7 +86,8 @@ async def list_issues(
         "open_by_complexity": {k: counts.get(k, 0) for k in ("trivial", "medium", "high", None)},
         "items": [_issue_out(i) for i in rows],
     }
-    await cache_set(cache_key, payload)
+    if await get_redis() is not None:
+        await cache_set(cache_key, payload)
     return payload
 
 

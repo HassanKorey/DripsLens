@@ -53,7 +53,6 @@ Required environment variables:
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | Postgres connection string, e.g. `postgresql+psycopg2://user:pass@host:5432/dripslens` |
-| `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0` (omit for in-process cache) |
 | `GITHUB_TOKEN` | GitHub token (required — see the rate-limit note in Quick start) |
 
 Set these in the Render dashboard — a Blueprint deploy prompts you for the `sync: false` variables on first deploy; they are injected as env vars at runtime and are read via pydantic-settings from `app/config.py`. `DATABASE_URL` is wired automatically to the `drips-lens-db` database via the blueprint.
@@ -62,6 +61,7 @@ Optional variables:
 
 | Variable | Purpose |
 |---|---|
+| `REDIS_URL` | Redis connection string, e.g. `redis://host:6379/0`. Optional — when unset (or Redis is unreachable) the app serves cacheable endpoints straight from Postgres, just slower. |
 | `ADMIN_TOKEN` | When set, `/admin/refresh*` requires an `X-Admin-Token: <value>` header. Leave unset only if your deployment is private. |
 
 ## API overview
