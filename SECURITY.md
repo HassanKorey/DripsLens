@@ -23,5 +23,6 @@ DripsLens is a read-only aggregator:
 - All third-party integrations (GitHub, Drips, Stellar Horizon) are read-only HTTP fetches.
 - Highest-risk areas: scraper input handling (HTML/JSON parsing of external sites) and the GitHub fetcher. SSRF/prototype-pollution style reports against those areas are welcome.
 - The dashboard renders user-adjacent data (issue titles, repo descriptions) — XSS reports there are in scope.
+- The production instance runs at https://dripslens.onrender.com (auto-deploys from `main`) — when reporting, reference the affected endpoint on the live instance where possible.
 
 We aim to triage and ship fixes for confirmed issues within 14 days.

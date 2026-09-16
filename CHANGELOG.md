@@ -5,6 +5,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versio
 
 ## [Unreleased]
 
+### Changed
+- README documents the live deployment (https://dripslens.onrender.com), an API endpoint reference table, and Render deployment details (required env vars, auto-deploy on push to `main`, Redis optional).
+- CONTRIBUTING and SECURITY reference the live production instance.
+
 ## [0.1.0] — 2026-09-14
 
 ### Added

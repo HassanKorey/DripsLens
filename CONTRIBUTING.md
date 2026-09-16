@@ -2,6 +2,14 @@
 
 Thanks for helping make the Drips Wave ecosystem trackable! This project is designed for contributors — most code areas map directly to a labelled issue.
 
+## Try it live
+
+- 🌐 **Live Demo**: https://dripslens.onrender.com
+- 📖 **API Docs**: https://dripslens.onrender.com/docs
+- ❤️ **Health Check**: https://dripslens.onrender.com/health
+
+The production instance auto-deploys on every push to `main` — what's merged is what's live. Use it to explore the API without setting up a local stack.
+
 ## Workflow
 
 1. **Pick an issue** — comment to claim it so maintainers can assign you.
