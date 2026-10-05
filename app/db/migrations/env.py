@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.db.database import Base
-from app.models import repo, issue, contributor
+from app.models import soroban
 
 config = context.config
 

@@ -1,17 +1,23 @@
 [project]
-name = "drips-lens"
-version = "0.1.0"
-description = "Aggregates, caches and serves data about Drips Wave (Stellar) approved repositories"
-requires-python = ">=3.11"
-
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP", "B"]
-ignore = ["E501"]
+name = "dripslens"
+version = "2.0.0"
+description = "Soroban Smart Contract & Stellar Analytics Engine"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "alembic",
+    "httpx",
+    "apscheduler",
+    "jinja2",
+    "pydantic",
+    "pydantic-settings",
+    "stellar-sdk",
+    "tenacity",
+    "sse-starlette"
+]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-q"
+asyncio_mode = "auto"
