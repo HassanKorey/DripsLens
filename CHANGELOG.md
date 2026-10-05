@@ -1,28 +1,25 @@
 # Changelog
 
-All notable changes to this project are documented here.
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [Semantic Versioning](https://semver.org/) and commits use the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) format.
+All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## Conventional Commits
 
-### Changed
-- README documents the live deployment (https://dripslens.onrender.com), an API endpoint reference table, and Render deployment details (required env vars, auto-deploy on push to `main`, Redis optional).
-- CONTRIBUTING and SECURITY reference the live production instance.
+We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification. Please format your commit messages as follows:
 
-## [0.1.0] — 2026-09-14
+`<type>[optional scope]: <description>`
 
-### Added
-- FastAPI backend: `/health`, `/repos`, `/issues`, `/contributors/top` REST endpoints with filtering and pagination
-- Scrapers: drips.network approved-repo parser, GitHub fetcher (issues/PRs/repo signals) with retry + rate-limit handling, Stellar Horizon verifier
-- PostgreSQL models for repos, issues, contributors; Alembic initial migration
-- Redis cache layer with 5-minute TTL and in-process fallback
-- Repo Health Score (issues, CI, recency, README) with `/repos/{id}/health` breakdown
-- APScheduler refresh engine (6h cycle) with startup run
-- Jinja2 dashboard: repo list, issue table, repo detail page
-- robots.txt and sitemap.xml
-- pytest suite (endpoints + pure scraper logic) and GitHub Actions CI (ruff + pytest)
-- Docker Compose stack: Postgres + Redis + app
-- Community health files: README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, MAINTAINERS, LICENSE
+Examples:
+- `feat: add stellar horizon verification`
+- `fix(api): resolve pagination offset bug`
+- `docs: update readme with setup instructions`
+- `test: add unit tests for github fetcher`
 
-[Unreleased]: https://github.com/HassanKorey/DripsLens/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/HassanKorey/DripsLens/releases/tag/v0.1.0
+### Allowed Types
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, missing semi-colons, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries such as documentation generation
