@@ -1,4 +1,7 @@
-def analyze_wasm(wasm_bytes: bytes) -> dict:
+from typing import Any
+
+
+def analyze_wasm(wasm_bytes: bytes) -> dict[str, Any]:
     # Analyzes WASM bytecode
     # Verify size limits, check for standard export functions
     size = len(wasm_bytes)
@@ -9,5 +12,5 @@ def analyze_wasm(wasm_bytes: bytes) -> dict:
         "wasm_size_bytes": size,
         "health_score": max(0, score),
         "exported_functions": 2,
-        "recommendations": ["Optimize WASM size"] if size > 64 * 1024 else []
+        "recommendations": ["Optimize WASM size"] if size > 64 * 1024 else [],
     }

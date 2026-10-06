@@ -1,5 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String
+
 from app.db.database import Base
+
 
 class SorobanContract(Base):
     __tablename__ = "soroban_contracts"
@@ -8,6 +10,7 @@ class SorobanContract(Base):
     health_score = Column(Integer, default=0)
     is_verified = Column(Boolean, default=False)
 
+
 class ContractEvent(Base):
     __tablename__ = "contract_events"
     id = Column(String, primary_key=True, index=True)
@@ -15,6 +18,7 @@ class ContractEvent(Base):
     topic = Column(String)
     data = Column(JSON)
     ledger_sequence = Column(Integer)
+
 
 class StorageMetric(Base):
     __tablename__ = "storage_metrics"

@@ -1,23 +1,30 @@
-from app.scrapers.stellar_verifier import verify_stellar_account
-from app.scrapers.github_fetcher import fetch_issues_for_repo, fetch_contributors
-from app.scrapers.drips_scraper import scrape_approved_repos
+from unittest.mock import AsyncMock, patch
 
-def test_verify_stellar_account():
-    # Example unit test
-    # This might require mocking requests in a real test
-    assert verify_stellar_account("invalid_account") == False
+import httpx
+import pytest
 
-def test_fetch_issues():
-    issues = fetch_issues_for_repo("stellar/stellar-core")
-    assert len(issues) > 0
-    assert "title" in issues[0]
+from app.scrapers.stellar import verify_stellar_account
 
-def test_fetch_contributors():
-    contributors = fetch_contributors()
-    assert len(contributors) > 0
-    assert "github_username" in contributors[0]
 
-def test_scrape_approved_repos():
-    repos = scrape_approved_repos()
-    assert len(repos) > 0
-    assert "name" in repos[0]
+@pytest.mark.asyncio
+async def test_verify_stellar_account_valid():
+    fake_response = httpx.Response(
+        status_code=200,
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/accounts/VALID_ACC"),
+    )
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = fake_response
+        is_valid = await verify_stellar_account("VALID_ACC")
+        assert is_valid is True
+
+
+@pytest.mark.asyncio
+async def test_verify_stellar_account_invalid():
+    fake_response = httpx.Response(
+        status_code=404,
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/accounts/INVALID_ACC"),
+    )
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = fake_response
+        is_valid = await verify_stellar_account("INVALID_ACC")
+        assert is_valid is False

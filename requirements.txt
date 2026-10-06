@@ -2,6 +2,7 @@ fastapi
 uvicorn
 sqlalchemy[asyncio]
 asyncpg
+aiosqlite
 alembic
 redis
 httpx

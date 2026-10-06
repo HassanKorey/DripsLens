@@ -1,7 +1,9 @@
-import httpx
 import os
 
+import httpx
+
 STELLAR_HORIZON_URL = os.getenv("STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org")
+
 
 async def verify_stellar_account(account_id: str) -> bool:
     # Verifies discovered public keys against Stellar Horizon API

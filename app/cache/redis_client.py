@@ -1,31 +1,44 @@
-import redis
-import os
 import json
+import logging
+import os
+from collections.abc import Callable
 from functools import wraps
+from typing import Any
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+import redis
 
-def cache_response(ttl_seconds=300):
-    def decorator(func):
+logger = logging.getLogger(__name__)
+
+REDIS_URL = os.getenv("REDIS_URL") or "redis://localhost:6379/0"
+redis_client: redis.Redis | None = None
+try:
+    redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+except Exception:
+    redis_client = None
+
+
+def cache_response(ttl_seconds: int = 300) -> Callable:
+    def decorator(func: Callable) -> Callable:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # For simplicity, we create a cache key based on the function name
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             cache_key = f"cache:{func.__name__}"
-            cached_data = redis_client.get(cache_key)
-            if cached_data:
-                return json.loads(cached_data)
-            
-            # Execute the actual function
+            if redis_client:
+                try:
+                    cached_data = redis_client.get(cache_key)
+                    if cached_data:
+                        return json.loads(str(cached_data))
+                except Exception as e:
+                    logger.warning("Redis cache get error: %s", e)
+
             response = await func(*args, **kwargs)
-            
-            # Convert response to dict for caching if it has dict() method (like pydantic models)
-            # or handle it appropriately. Here we assume response is serializable.
-            # In a real app we might need to handle specific serialization.
-            try:
-                redis_client.setex(cache_key, ttl_seconds, json.dumps(response))
-            except Exception:
-                pass
+
+            if redis_client:
+                try:
+                    redis_client.setex(cache_key, ttl_seconds, json.dumps(response))
+                except Exception as e:
+                    logger.warning("Redis cache set error: %s", e)
             return response
+
         return wrapper
+
     return decorator

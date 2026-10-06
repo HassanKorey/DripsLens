@@ -299,7 +299,7 @@ jobs:
     - name: Run tests with coverage
       run: |
         pytest --cov=app --cov-fail-under=90 || true
-"""
+""",
 }
 
 # Create directories
