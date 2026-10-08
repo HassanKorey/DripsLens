@@ -1,25 +1,26 @@
-"""${message}
+"""Empty message
 
-Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
-Create Date: ${create_date}
+Revision ID: head
+Revises: 
+Create Date: 2026-10-05 10:00:00.000000
 
 """
 from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-${imports if imports else ""}
 
-revision: str = ${repr(up_revision)}
-down_revision: Union[str, None] = ${repr(down_revision)}
-branch_labels: Union[str, Sequence[str], None] = ${repr(branch_labels)}
-depends_on: Union[str, Sequence[str], None] = ${repr(depends_on)}
+
+# revision identifiers, used by Alembic.
+revision: str = 'head'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    ${upgrades if upgrades else "pass"}
+    pass
 
 
 def downgrade() -> None:
-    ${downgrades if downgrades else "pass"}
+    pass

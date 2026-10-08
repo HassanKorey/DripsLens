@@ -1,0 +1,302 @@
+================================================================================
+DripsLens — Wave 9 contributor issues (audited against v0.1.0 codebase)
+Generated: 2026-09-17
+Total: 12 issues — 5 trivial (100 pts), 3 medium (150 pts), 4 high (200 pts)
+
+Skipped as already fully built (verified in code + tests):
+  uptime_seconds on /health, CI badge in README, Redis caching for /repos,
+  pagination on /repos and /issues, language + multiplier filters,
+  POST /admin/refresh manual trigger.
+
+Filing checklist: create labels first — complexity: trivial, complexity: medium,
+complexity: high, good first issue, help wanted, Wave 9 — then file in order 1-12.
+Note: Issues 3 and 7 share test scaffolding for GitHubClient.get_json.
+================================================================================
+
+--------------------------------------------------------------------------------
+ISSUE 1 — Write unit tests for stellar_verifier.py HTTP paths (pre-planned #2)
+Labels: complexity: trivial, good first issue, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Add HTTP-path unit tests for `stellar_verifier.py` — the existing tests only cover address-shape helpers and `None`/invalid inputs, leaving the actual Horizon and Soroban RPC code paths untested.
+
+## Context
+`app/scrapers/stellar_verifier.py` classifies every Wave repo's Stellar account as `verified`/`unverified`/`unknown`, and `app/scheduler/tasks.py::refresh_repos()` sets `repo.stellar_verified` directly from its result — so a parsing bug here silently corrupts the verified flag on 700+ repos. `tests/test_scrapers.py` currently tests `looks_like_account`, `looks_like_contract`, and `verify_account(None)`/invalid, but `_check_horizon()` and `_check_contract()` are never exercised.
+
+## Acceptance Criteria
+- [ ] Tests for `_check_horizon`: Horizon 200 -> `verified` (with XLM balance surfaced in `detail`), 404 -> `unverified`, 500 -> `unknown`, and `httpx.ConnectError` -> `unknown`
+- [ ] Tests for `_check_contract`: no `STELLAR_RPC_URL` configured -> `unknown` with explanatory detail; RPC returning entries -> `verified`; empty entries -> `unverified`
+- [ ] Test that `verify_account("G" + "A"*55)` routes to Horizon and `verify_account("C" + "A"*55)` routes to Soroban RPC (mocked, no network)
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Mock with `monkeypatch.setattr("app.scrapers.stellar_verifier.httpx.get", fake_get)` and the same for `httpx.post` — `app/scrapers/stellar_verifier.py` calls `httpx.get`/`httpx.post` at module top, so patching the httpx module attributes is sufficient. Build `httpx.Response(status_code, json={...})` objects directly; for the error case raise `httpx.ConnectError("boom")`. For contract tests, `settings.stellar_rpc_url` is read inside `_check_contract` via `app.config.settings` — monkeypatch `settings.stellar_rpc_url` (it's a pydantic-settings instance, settable per-test). No network access in tests, matching the convention stated in `CONTRIBUTING.md`.
+
+## Complexity
+Trivial (100 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 2 — Add last_updated timestamp to all API responses (pre-planned #3)
+Labels: complexity: trivial, good first issue, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Add a top-level `generated_at` (UTC ISO-8601) and `data_as_of` (freshness of underlying data) field to every list/aggregate API response so consumers can tell how stale the data they're reading is.
+
+## Context
+DripsLens data is only as fresh as the last 6-hour refresh cycle (`app/scheduler/tasks.py::refresh_repos`), but API consumers currently can't see that: `/repos` and `/issues` payloads in `app/routers/repos.py` and `app/routers/issues.py` expose `total`/`page`/`per_page`/`items` only, and repo rows carry `last_fetched_at` buried per-item. A dashboard or bot polling `/repos` has no way to display "data from 2h ago" without inspecting individual items.
+
+## Acceptance Criteria
+- [ ] `/repos`, `/repos/meta`, `/issues`, `/issues/stats`, and `/contributors/top` each return a top-level `generated_at` field: `datetime.now(UTC).isoformat()`
+- [ ] `/repos` and `/issues` additionally return `data_as_of`: the maximum `last_fetched_at` among returned repo rows (null-safe when no items)
+- [ ] Timestamps are ISO-8601 UTC strings (project convention — see `CONTRIBUTING.md`); existing keys are unchanged so no client breaks
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Edit the `payload = {...}` dicts in `app/routers/repos.py::list_repos`/`repos_meta`, `app/routers/issues.py::list_issues`/`issue_stats`, and `app/routers/contributors.py::top_contributors`. For `data_as_of` in `list_repos`, compute `max((r.last_fetched_at for r in rows), default=None)` before serialization. Gotcha: cached responses (the `cache_get`/`cache_set` block at the top of `list_repos`/`list_issues`) will replay a frozen `generated_at` — that's correct behavior (it reflects when the cached payload was built) but mention it in a code comment. Update `tests/test_repos.py::test_list_repos` and `tests/test_issues.py` to assert the new keys.
+
+## Complexity
+Trivial (100 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 3 — Write unit tests for github_fetcher.py retry/rate-limit logic (pre-planned #4)
+Labels: complexity: trivial, good first issue, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Add unit tests for `GitHubClient.get_json` retry/backoff/rate-limit handling and the high-level fetchers — currently only the pure parsing helpers (`score_readme`, `_extract_toml_account`, `_extract_readme_account`, `discover_stellar_account`) in `app/scrapers/github_fetcher.py` are tested.
+
+## Context
+`app/scrapers/github_fetcher.py::get_json` is the single choke point through which every GitHub call in the 6-hour refresh flows: it handles 403 rate limits (`GitHubRateLimited`), 429 `Retry-After`, 5xx exponential backoff, and 404s. `app/scheduler/tasks.py::refresh_repos` aborts the whole cycle on `GitHubRateLimited`, so a regression in this logic either burns the rate limit or silently drops repos. None of this request handling is covered by `tests/test_scrapers.py`.
+
+## Acceptance Criteria
+- [ ] Tests for `get_json`: 200 returns parsed JSON; 404 raises `LookupError`; 403 with `X-RateLimit-Remaining: 0` raises `GitHubRateLimited` immediately; 500 retries with backoff then raises
+- [ ] Test that 429 sleeps the `Retry-After` value and retries (patch `time.sleep` to avoid slow tests)
+- [ ] Tests for `fetch_open_issues`: excludes items containing a `pull_request` key, parses labels/assignees, and stops paginating when a page returns < 100 items
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Construct `GitHubClient(token="t", max_retries=2)` directly — the constructor in `app/scrapers/github_fetcher.py` accepts overrides so you don't touch real settings. Mock the transport rather than real HTTP: `monkeypatch.setattr` a fake `httpx.Client` context manager returning scripted `httpx.Response` objects (or use `httpx.MockTransport`). Patch `app.scrapers.github_fetcher.time.sleep` to a no-op recorder so backoff assertions (`min(2**attempt, 30)`) are fast and observable. Follow the existing no-network test convention in `tests/test_scrapers.py`. Note: Issue 7 in this batch extends `get_json` — if it lands after you, its tests extend your module.
+
+## Complexity
+Trivial (100 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 4 — Fix relative Sitemap URL in robots.txt (pre-planned #5)
+Labels: complexity: trivial, good first issue, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Fix the `/robots.txt` endpoint: it emits a relative `Sitemap:` directive (invalid per the sitemaps spec, which requires an absolute URL), making the sitemap declaration effectively broken in production.
+
+## Context
+`app/routers/dashboard.py::robots_txt` currently returns `Sitemap: /sitemap.xml` — search engines require a fully-qualified URL there, so the declaration is broken at https://dripslens.onrender.com/robots.txt. The dashboard is the indexable surface, so robots.txt needs to reference the real absolute sitemap URL derived from the request.
+
+## Acceptance Criteria
+- [ ] `/robots.txt` emits `Sitemap: {absolute_base_url}/sitemap.xml` using `request.base_url`, matching what the live instance serves
+- [ ] Response keeps `media_type="text/plain"`, returns 200, and ends with a trailing newline
+- [ ] A test asserts the sitemap line starts with `http` (not a relative path) and that `User-agent: *` / `Allow: /` are present
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Edit `app/routers/dashboard.py::robots_txt` — add a `request: Request` parameter (the function currently takes none) and build the sitemap URL the same way `sitemap_xml` in the same file already does: `base = str(request.base_url).rstrip("/")`. Keep the route `include_in_schema=False` (inherited from `router = APIRouter(include_in_schema=False)`). Coordination: Issue 5 in this batch expands the sitemap contents — land this first so the URL is valid regardless of sitemap size.
+
+## Complexity
+Trivial (100 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 5 — Include repo detail pages in sitemap.xml (pre-planned #6)
+Labels: complexity: trivial, good first issue, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Expand `/sitemap.xml` to include the per-repo dashboard pages (`/repos/view/{id}`), not just `/` — today the sitemap lists a single URL, making it useless for SEO of the actual content pages.
+
+## Context
+`app/routers/dashboard.py::sitemap_xml` hardcodes `for path in ("/",)` and queries nothing, while the genuinely indexable content — hundreds of repo detail pages served by `repo_page()` in the same file — is entirely absent from the sitemap. For an aggregator whose whole purpose is discoverability of Wave repos, this is the main SEO gap.
+
+## Acceptance Criteria
+- [ ] `/sitemap.xml` includes `<url>` entries for `/` and for every active repo's `/repos/view/{id}` page (query `Repo` where `is_active` is true)
+- [ ] Each repo URL includes a `<lastmod>` element from `Repo.updated_at` (ISO-8601, omitted when the timestamp is missing)
+- [ ] Response remains `media_type="application/xml"` with the correct `urlset` namespace, and total URL count stays sane (cap at 1,000 if needed)
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Edit `app/routers/dashboard.py::sitemap_xml`: add a `db: Annotated[Session, Depends(get_db)]` parameter (the route currently has none — copy the dependency pattern from `dashboard()` in the same file). Preserve the existing string-building style (the `entries` list joined with `"\n"`); use `repo.updated_at.isoformat()` for `lastmod` — `Repo.updated_at` has `server_default=func.now()` so it's always set in practice. Gotcha: the DB may be empty on a fresh deployment (see the "No data yet" empty-state in `app/templates/dashboard.html`) — the endpoint must still return valid XML with just `/`. Add a test seeding repos via the `seed_repos` fixture from `tests/conftest.py`.
+
+## Complexity
+Trivial (100 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 6 — Fix /contributors/top repo-filter ranking bug (pre-planned #13)
+Labels: complexity: medium, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Fix a correctness bug in `/contributors/top`: when the `repo` filter is set, ranking is computed *before* filtering in Python, so the leaderboard can silently drop the top contributor for that repo.
+
+## Context
+`app/routers/contributors.py::top_contributors` orders `Contributor` rows by points, applies `.limit(limit)`, and *then* filters in Python: `rows = [c for c in rows if repo in (c.repos_contributed or [])]` (against the `repos_contributed` JSON column). A contributor ranked #1 for `owner/repo` but #30 globally never makes it into a `limit=25` result set. The unfiltered case works; the API layer has no test for the filtered case.
+
+## Acceptance Criteria
+- [ ] `GET /contributors/top?repo=owner/name` returns the correct top-N contributors *for that repo*, ranked by points earned there, not by global rank
+- [ ] Contributors with zero PRs to the requested repo never appear in the filtered result
+- [ ] Response shape stays backward-compatible (existing keys unchanged)
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Two viable approaches in `app/routers/contributors.py`: (a) simplest correct — when `repo` is set, drop the global `.limit()` pre-filter, load candidates, filter in Python, re-sort by points, then take `limit` (fine at current scale, ~hundreds of rows); (b) better — per-repo points would need new aggregates (schema change — discuss with maintainers before attempting). Acceptable v1: derive per-repo counts from `c.recent_prs` entries (each carries a `repo` key), which is capped at 25 entries by `update_leaderboard` in `app/scheduler/tasks.py` — document that caveat in the response or docstring. Note `points` on `Contributor` is a *global* aggregate with the repo multiplier applied, so per-repo points from `recent_prs` are approximate. Add API-level tests using the `seed_repos` fixture pattern from `tests/conftest.py` (it already seeds an `octocat` contributor).
+
+## Complexity
+Medium (150 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 7 — Handle GitHub secondary rate limits + jittered backoff in github_fetcher.py (pre-planned #15)
+Labels: complexity: medium, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Teach `GitHubClient.get_json` to handle GitHub *secondary* rate limits and add jittered backoff — today only the primary limit (403 + `X-RateLimit-Remaining: 0`) and plain 429 are handled, while GitHub's secondary limits arrive as 403s with a `Retry-After` header and currently crash the fetch.
+
+## Context
+`app/scrapers/github_fetcher.py::get_json` raises `GitHubRateLimited` on 403-with-zero-remaining and sleeps on 429, but a 403 carrying `Retry-After` (GitHub's secondary/abuse limit — exactly what a 700-repo, 3-5-calls-per-repo refresh cycle trips) falls through to `resp.raise_for_status()` and raises a raw `HTTPStatusError`. In `app/scheduler/tasks.py::refresh_repos` that exception is caught as a generic failure (`stats["errors"] += 1`) and the repo is skipped instead of the fetch being retried after the indicated wait. Backoff sleeps are also deterministic (`min(2**attempt, 30)`), which synchronizes retries across the many repos in a cycle.
+
+## Acceptance Criteria
+- [ ] A 403 response with a `Retry-After` header is treated as a retryable secondary limit: sleep `Retry-After` seconds (capped, e.g. <= 60) and retry within the existing attempt loop
+- [ ] Exponential backoff on 5xx/network errors includes random jitter (e.g. `sleep = min(2**attempt, 30) * uniform(0.5, 1.5)`)
+- [ ] A 403 secondary limit that persists past `max_retries` raises `GitHubRateLimited` (not `HTTPStatusError`) so `refresh_repos`'s existing `except GitHubRateLimited` abort-and-break path works
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+All changes are inside `get_json` in `app/scrapers/github_fetcher.py` (the block after `resp = client.get(...)`). Order of checks matters: keep the primary-limit check (`X-RateLimit-Remaining == "0"`) *before* the new `Retry-After` check, since primary 403s can also carry `Retry-After: 0`. Import `random` and use `random.uniform` for jitter. For tests, coordinate with Issue 3 in this batch (the `get_json` unit-test module): if it has landed, extend it; if you land first, create the scaffolding it will extend. Patch `time.sleep` with a recorder and assert: 403+Retry-After sleeps the header value then succeeds on attempt 2, and jitter stays within `[0.5x, 1.5x]` of the base.
+
+## Complexity
+Medium (150 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 8 — Make /repos/{id}/health self-consistent with its component breakdown (pre-planned #16)
+Labels: complexity: high, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Make `/repos/{id}/health` internally consistent — the endpoint currently returns a *stored* `health_score` from the DB alongside a *live-recomputed* component breakdown, so the total and its parts can disagree.
+
+## Context
+`app/routers/repos.py::repo_health` builds `breakdown` from the repo's current columns (including an `age_days` computed from `datetime.now(UTC)` at request time) but returns `repo.health_score` when it's non-null — a value computed by `compute_health_score()` (`app/scheduler/tasks.py`) up to 6 hours ago at refresh time. As time passes, the live `recency` component decays while the stored total stays frozen, so `health_score` no longer equals the sum of the returned `components`. The scores feed the dashboard's default sort (see `app/routers/dashboard.py`), so silent drift is user-visible.
+
+## Acceptance Criteria
+- [ ] `GET /repos/{id}/health` returns `health_score` computed by the same formula as its `components` (sum of the returned components, rounded to 1 decimal) so the response is self-consistent
+- [ ] Response includes `computed_at` (UTC ISO-8601) and `refreshed_at` (the repo's `last_fetched_at`) so consumers can see both compute time and data age
+- [ ] Response includes `stored_health_score` (the DB value, may be null) so drift between stored and computed remains observable
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Edit `app/routers/repos.py::repo_health`. Cleanest fix: always call `compute_health_score(repo.open_issues_count, repo.has_ci, repo.last_commit_at or repo.last_push_at, repo.readme_score)` for `health_score`, keeping the existing `breakdown` dict as the authoritative parts — then assert in a test that `health_score ~= round(sum(components.values()), 1)` (watch rounding: components are rounded to 1 decimal individually, so compare with a small tolerance or round consistently). Keep the 404 path unchanged (`tests/test_repos.py::test_repo_health_breakdown` asserts the component key set — extend it, don't rename keys). Gotcha: `compute_health_score` is already imported at the top of `app/routers/repos.py` and used as the fallback in the current code, so no new imports.
+
+## Complexity
+High (200 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 9 — Add contributor leaderboard view to dashboard (pre-planned #17)
+Labels: complexity: high, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Add a contributor leaderboard section to the Jinja2 dashboard — the API (`/contributors/top`) and the data pipeline (`update_leaderboard` in the refresh engine) exist, but the HTML dashboard shows repos and issues only.
+
+## Context
+The dashboard is the human-facing surface of DripsLens (`app/templates/dashboard.html`, rendered by `dashboard()` in `app/routers/dashboard.py`), and contributor recognition is a core Wave motivator — points and merged PRs are already aggregated into the `Contributor` model (`app/models/contributor.py`: `github_login`, `avatar_url`, `merged_prs`, `points`, `repos_contributed`) by `app/scheduler/tasks.py::update_leaderboard`. The leaderboard is served via `GET /contributors/top` (`app/routers/contributors.py`) but there is no visual surface for it anywhere.
+
+## Acceptance Criteria
+- [ ] Dashboard (`GET /`) renders a "Top contributors" table showing the top 10: avatar, GitHub login (linking to profile), merged PRs, and points
+- [ ] Table uses the same styling conventions as the existing repos/issues tables (`.card`, `.badge`, `.muted` classes from `app/static/style.css`)
+- [ ] Empty DB renders a graceful empty-state row ("No contributors yet — the refresh engine will populate shortly."), matching the existing empty-state pattern
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Two files: (1) in `app/routers/dashboard.py::dashboard`, query `db.query(Contributor).order_by(Contributor.points.desc(), Contributor.merged_prs.desc()).limit(10).all()` (import `Contributor` from `app.models` — the file already imports `Issue, Repo` from there) and add it to the template context dict; (2) in `app/templates/dashboard.html`, add a `<section>` after the issues table following the established table markup pattern. Use `c.avatar_url` (already `https://github.com/{login}.png` per `update_leaderboard`) with `loading="lazy"` and appropriate alt text; link `profile_url`. Gotcha: `contributor.points`/`merged_prs` are non-nullable `BigInteger` columns with defaults 0, so the desc ordering is null-safe. Per `CONTRIBUTING.md`, keep the change focused and add a test asserting the section renders when a contributor is seeded (reuse the `octocat` contributor from `tests/conftest.py::seed_repos`).
+
+## Complexity
+High (200 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 10 — Write integration tests for the scraper -> DB -> API pipeline (pre-planned #18)
+Labels: complexity: high, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Add end-to-end integration tests proving that a mocked refresh cycle makes data visible through the live API — one pipeline test exists at the DB layer, but nothing asserts the scraper->DB->API->cache-invalidation chain as a whole.
+
+## Context
+`tests/test_scrapers.py::test_refresh_repos_verifies_discovered_account` already runs `refresh_repos()` end-to-end with a `FakeClient` and asserts DB state (`repo.stellar_account`, `stats["verified"]`), and `tests/conftest.py` provides the full FastAPI `TestClient` fixture against the same SQLite DB. What's missing is the seam between layers: after a refresh, do `/repos`, `/issues`, and `/contributors/top` actually serve the new data, and does the cache-invalidation call in `app/scheduler/tasks.py` (`cache.invalidate_prefix_sync("dripslens:")`) actually prevent stale reads? This is the exact class of bug the int32-overflow migration (see `app/db/migrations/versions/0002_numeric_columns_to_bigint.py`) was needed for — data saved but wrong at the API layer.
+
+## Acceptance Criteria
+- [ ] New `tests/test_integration.py` runs a mocked `refresh_repos()` (FakeClient pattern from `test_scrapers.py`) and then asserts `GET /repos`, `GET /repos/{full_name}`, and `GET /issues` return the refreshed data with correct field values
+- [ ] Asserts contributor data flows through: after `update_leaderboard` runs inside the refresh, `GET /contributors/top` shows the contributor with correct points
+- [ ] Proves cache invalidation: pre-populate a cached `/repos` response (call the endpoint twice with the fallback cache), run the refresh, and assert the served payload reflects new data
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Create `tests/test_integration.py`; copy the `FakeClient` + `monkeypatch` pattern from `tests/test_scrapers.py::test_refresh_repos_verifies_discovered_account` (patch `drips_scraper.fetch_drips_repos`, `github_fetcher.GitHubClient`, and `stellar_verifier.verify_account` — keep all three fakes, the refresh touches all of them). The `client` fixture in `tests/conftest.py` runs the real app against the same `SessionLocal` the refresh uses, so no extra wiring is needed; prefer relying on the refresh to create rows (true end-to-end) rather than `seed_repos`, which wipes tables. Gotcha: `refresh_repos` opens its own `SessionLocal()` per repo and commits — with SQLite in tests this is fine, but the `db_session` fixture rolls back while the refresh commits, so assert through the `client` (HTTP) rather than mixing raw sessions. For the cache-invalidation check, `tests/conftest.py` sets `REDIS_URL=""`, which activates the in-process fallback in `app/cache/redis_client.py` — call `client.get("/repos")` before and after the refresh and compare payloads.
+
+## Complexity
+High (200 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 11 — Deduplicate README fetches and skip redundant Horizon re-verification in refresh_repos (pre-planned #19)
+Labels: complexity: high, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Cut redundant network work in the refresh cycle: fetch each repo's README once per cycle instead of twice, and skip re-verifying Stellar accounts that are already verified and unchanged, so the 6-hour cycle does materially fewer GitHub and Horizon calls across 700+ repos.
+
+## Context
+In `app/scheduler/tasks.py::refresh_repos`, every repo triggers `gh.fetch_repo_signals(full_name)` — which downloads and decodes the README for `readme_score` (see `app/scrapers/github_fetcher.py::fetch_repo_signals`) — and then, when no Stellar account came from the Drips page, `github_fetcher.discover_stellar_account(gh, ...)`, which downloads the *same README again* (plus `stellar.toml` attempts). Separately, `stellar_verifier.verify_account(account)` runs a Horizon HTTP call for every repo on *every* cycle even when `repo.stellar_verified` is already true and the account string is unchanged in the DB — pure repeat work with zero new information.
+
+## Acceptance Criteria
+- [ ] The README is fetched at most once per repo per cycle: `fetch_repo_signals` and `discover_stellar_account` share one download (decode once, reuse the text for both `score_readme` and `_extract_readme_account`)
+- [ ] Already-verified accounts are not re-verified: when `repo.stellar_verified is True` and the discovered/linked account equals `repo.stellar_account`, `verify_account` is not called (Horizon call count drops to ~0 on steady state)
+- [ ] Verification still runs whenever the account is new, changed, or previously unverified/unknown, and a test asserts the call count with a counting fake (pattern exists in `test_scrapers.py::test_refresh_repos_verifies_discovered_account` via `verify_calls`)
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Two coordinated changes. (1) README dedup: in `app/scrapers/github_fetcher.py`, add an optional `readme_text: str | None = None` parameter to `discover_stellar_account` (skip the `/readme` download when provided), and in `fetch_repo_signals` either return the decoded README text on `RepoSignals` (add a field, e.g. `readme_text`) or expose a small helper `fetch_readme_text(client, full_name)` used by both paths; then pass it through in `app/scheduler/tasks.py::refresh_repos` (signals are fetched before discovery — the order already suits this). Mind the base64 decode: both call sites use `base64.b64decode(data.get("content", "")).decode("utf-8", "ignore")`. (2) Verification skip: in `refresh_repos`, wrap the `stellar_verifier.verify_account` call — skip when `repo.stellar_verified is True and repo.stellar_account == account`. Gotcha: the DB is a fresh session per repo; `repo` is the upserted object so its previous values are loaded — but a repo whose account was just discovered this cycle has `stellar_verified is None`, so first discovery still verifies (correct). Update the counting-fake test to assert exactly one README fetch and zero verifier calls on a second refresh with unchanged data.
+
+## Complexity
+High (200 pts)
+
+--------------------------------------------------------------------------------
+ISSUE 12 — Add Alembic migration for missing indexes (pre-planned #20)
+Labels: complexity: high, help wanted, Wave 9
+--------------------------------------------------------------------------------
+
+## Summary
+Create an Alembic migration adding the indexes the query hot paths need but the schema lacks — every `/repos` and `/issues` list request filters or sorts on columns that are currently unindexed, so Postgres seq-scans them at 700+ repo scale.
+
+## Context
+`app/db/migrations/versions/0001_initial_schema.py` indexes `full_name`, `language`, `point_multiplier`, `health_score` (repos) and `github_id`, `repo_id`, `state`, `complexity`, `claimed` (issues). But the actual query patterns in `app/routers/repos.py` and `app/routers/issues.py` also: filter `Repo.is_active` on *every* list call, sort by `Repo.stars`/`Repo.open_issues_count`/`Repo.last_push_at` (the `sort_cols` dict) and `Issue.points`/`Issue.created_at_gh`/`Issue.updated_at_gh`, and rank `Contributor.merged_prs` alongside the already-indexed `points`. On the production Postgres instance this gets worse as the Wave catalog grows.
+
+## Acceptance Criteria
+- [ ] New migration `app/db/migrations/versions/0004_add_missing_indexes.py` with `revision = "0004"`, `down_revision = "0003"`, creating indexes for: `repos.is_active`, `repos.stars`, `repos.open_issues_count`, `repos.last_push_at`, `issues.points`, `issues.created_at_gh`, `issues.updated_at_gh`, `contributors.merged_prs`
+- [ ] `alembic upgrade head` applies cleanly on a database at revision 0003, and `alembic downgrade -1` removes exactly the added indexes
+- [ ] Indexes are plain single-column B-tree (matches the 0001 style — no partial/experimental index types without maintainer discussion)
+- [ ] All existing tests still pass
+- [ ] No ruff lint errors
+
+## Technical Notes
+Copy the style of `0002_numeric_columns_to_bigint.py` (the most recent migration) for module docstring and revision bookkeeping; chain it after 0003 (`app/db/migrations/versions/0003_issue_number_to_bigint.py`). Use `op.create_index("ix_repos_is_active", "repos", ["is_active"])` etc. with matching `drop_index` in `downgrade`. Gotchas: (1) the tests create schema via `Base.metadata.create_all` (`tests/conftest.py`), not Alembic — so also add `index=True` to the corresponding `mapped_column`s in `app/models/repo.py`, `app/models/issue.py`, and `app/models/contributor.py` to keep the model-created schema consistent with the migrated one; (2) low-cardinality boolean `is_active` is still worth indexing because it's an unconditional filter in `list_repos` — if a maintainer disagrees, drop it from the set rather than inventing a partial index. Verify locally: `alembic upgrade head && alembic downgrade -1 && alembic upgrade head` against a scratch DB (the render.yaml start command runs `alembic upgrade head` before boot, so a broken migration blocks deploys — double-check before opening the PR).
+
+## Complexity
+High (200 pts)

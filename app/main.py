@@ -1,48 +1,24 @@
-"""DripsLens FastAPI application entry point."""
+from fastapi import FastAPI, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
-import logging
-from contextlib import asynccontextmanager
+from app.routers import analytics, soroban, stream
+from app.scheduler.tasks import start_scheduler
 
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+app = FastAPI(title="DripsLens Soroban Analytics")
 
-from app import __version__
-from app.cache import redis_client as cache
-from app.config import settings
-from app.db.database import create_all
-from app.routers import admin, contributors, dashboard, health, issues, repos
-from app.scheduler.tasks import start_scheduler, stop_scheduler
+app.include_router(soroban.router)
+app.include_router(stream.router)
+app.include_router(analytics.router)
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
-)
-logger = logging.getLogger(__name__)
+templates = Jinja2Templates(directory="app/templates")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Lightweight startup: create tables if missing (prod path is Alembic)
-    create_all()
-    if settings.scheduler_enabled:
-        start_scheduler()
-    yield
-    stop_scheduler()
-    await cache.close_redis()
+@app.on_event("startup")
+async def on_startup() -> None:
+    start_scheduler()
 
 
-app = FastAPI(
-    title=settings.app_name,
-    description="Aggregates, caches and serves data about Drips Wave (Stellar) approved repositories.",
-    version=__version__,
-    lifespan=lifespan,
-)
-
-app.include_router(health.router)
-app.include_router(admin.router)
-app.include_router(repos.router)
-app.include_router(issues.router)
-app.include_router(contributors.router)
-app.include_router(dashboard.router)
-
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+@app.get("/soroban/explorer", response_class=HTMLResponse)
+async def explorer(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(request, "soroban_explorer.html")
