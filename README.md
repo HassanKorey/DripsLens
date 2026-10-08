@@ -20,7 +20,6 @@
 [API Reference](#-api-reference) •
 [Configuration](#-configuration--environment-variables) •
 [Testing](#-testing--code-quality) •
-[Deployment](#-deployment) •
 [Contributing](#-contributing)
 
 </div>
@@ -226,9 +225,9 @@ Docker Compose starts the FastAPI application, PostgreSQL database, and Redis ca
    ```
 
 5. **Access the application:**
-   - **Interactive API Docs (Swagger UI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - **Alternative API Docs (ReDoc)**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-   - **Soroban Event Explorer Dashboard**: [http://localhost:8000/soroban/explorer](http://localhost:8000/soroban/explorer)
+   - **Interactive API Docs (Swagger UI)**: [https://dripslens.onrender.com/docs](https://dripslens.onrender.com/docs)
+   - **Alternative API Docs (ReDoc)**: [https://dripslens.onrender.com/redoc](https://dripslens.onrender.com/redoc)
+   - **Soroban Event Explorer Dashboard**: [https://dripslens.onrender.com/soroban/explorer](https://dripslens.onrender.com/soroban/explorer)
 
 6. **View logs or stop services:**
    ```bash
@@ -281,8 +280,8 @@ For local development and testing:
    ```
 
 7. **Open in browser:**
-   - Visit [http://localhost:8000/docs](http://localhost:8000/docs) for the interactive Swagger UI.
-   - Visit [http://localhost:8000/soroban/explorer](http://localhost:8000/soroban/explorer) for the Event Explorer.
+   - Visit [https://dripslens.onrender.com/docs](https://dripslens.onrender.com/docs) for the interactive Swagger UI.
+   - Visit [https://dripslens.onrender.com/soroban/explorer](https://dripslens.onrender.com/soroban/explorer) for the Event Explorer.
 
 ---
 
@@ -334,7 +333,7 @@ Interactive OpenAPI documentation is generated automatically by FastAPI and acce
 
 #### 1. Fetch Indexed Soroban Events
 ```bash
-curl -X GET "http://localhost:8000/soroban/events" \
+curl -X GET "https://dripslens.onrender.com/soroban/events" \
   -H "Accept: application/json"
 ```
 
@@ -357,7 +356,7 @@ curl -X GET "http://localhost:8000/soroban/events" \
 
 #### 2. Get Contract Health & WASM Analysis
 ```bash
-curl -X GET "http://localhost:8000/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/health" \
+curl -X GET "https://dripslens.onrender.com/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/health" \
   -H "Accept: application/json"
 ```
 
@@ -372,7 +371,7 @@ curl -X GET "http://localhost:8000/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7
 
 #### 3. Get Contract TTL & State Expiration
 ```bash
-curl -X GET "http://localhost:8000/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/ttl" \
+curl -X GET "https://dripslens.onrender.com/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/ttl" \
   -H "Accept: application/json"
 ```
 
@@ -387,7 +386,7 @@ curl -X GET "http://localhost:8000/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7
 
 #### 4. Cross-Contract Invocation Topology Graph
 ```bash
-curl -X GET "http://localhost:8000/soroban/graph" \
+curl -X GET "https://dripslens.onrender.com/soroban/graph" \
   -H "Accept: application/json"
 ```
 
@@ -410,7 +409,7 @@ curl -X GET "http://localhost:8000/soroban/graph" \
 
 #### 5. Stream Real-Time Events (Server-Sent Events)
 ```bash
-curl -N -H "Accept: text/event-stream" "http://localhost:8000/soroban/stream/events"
+curl -N -H "Accept: text/event-stream" "https://dripslens.onrender.com/soroban/stream/events"
 ```
 
 **Stream Output:**
@@ -461,36 +460,6 @@ Our GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and 
 
 ---
 
-## 🚢 Deployment
-
-### Production Docker Container
-DripsLens includes a multi-stage optimized `Dockerfile`:
-
-```bash
-# Build production image
-docker build -t dripslens:latest .
-
-# Run container standalone
-docker run -d \
-  -p 8000:8000 \
-  -e DATABASE_URL="postgresql+asyncpg://user:pass@host:5432/dripslens" \
-  -e REDIS_URL="redis://host:6379/0" \
-  --name dripslens \
-  dripslens:latest
-```
-
-### Cloud Deployment with Render
-A production blueprint is provided in `render.yaml`. It automatically provisions:
-- A Python 3.11 web service with automatic Alembic migrations (`alembic upgrade head && uvicorn app.main:app`).
-- A managed PostgreSQL instance (`drips-lens-db`).
-
-To deploy on Render:
-1. Fork or push this repository to GitHub.
-2. In the [Render Dashboard](https://dashboard.render.com/), choose **Blueprints** -> **New Blueprint Instance**.
-3. Connect your repository; Render will automatically detect `render.yaml` and configure the database and web service.
-
----
-
 ## 🤝 Contributing
 
 We welcome contributions from the community! To contribute:
@@ -515,18 +484,6 @@ We welcome contributions from the community! To contribute:
 5. Submit a pull request detailing your changes.
 
 Please review our [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for full community guidelines.
-
----
-
-## 🔒 Security
-
-For details on reporting security vulnerabilities, please refer to our [SECURITY.md](SECURITY.md). All reports are investigated promptly by the maintainers.
-
----
-
-## 👥 Maintainers
-
-- **DripsLens Maintainer Team** ([MAINTAINERS.md](MAINTAINERS.md))
 
 ---
 
