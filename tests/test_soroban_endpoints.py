@@ -75,3 +75,18 @@ def test_start_scheduler():
         start_scheduler()
         mock_scheduler.add_job.assert_called_once()
         mock_scheduler.start.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_soroban_openapi_schema_metadata(async_client: AsyncClient):
+    response = await async_client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+    paths = schema.get("paths", {})
+    assert "/soroban/events" in paths
+    assert "/soroban/contracts/{contract_id}/metrics" in paths
+    events_get = paths["/soroban/events"]["get"]
+    metrics_get = paths["/soroban/contracts/{contract_id}/metrics"]["get"]
+    assert "Soroban Analytics" in events_get.get("tags", [])
+    assert "Soroban Analytics" in metrics_get.get("tags", [])
+    assert len(events_get.get("summary", "")) > 0
+    assert len(metrics_get.get("summary", "")) > 0
