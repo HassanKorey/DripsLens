@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # --- App ---
     app_name: str = "DripsLens"
-    app_version: str = "0.1.0"
+    app_version: str = "2.0.0"
     debug: bool = False
     scheduler_enabled: bool = True
     initial_refresh_on_startup: bool = True
