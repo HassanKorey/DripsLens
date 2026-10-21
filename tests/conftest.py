@@ -19,6 +19,9 @@ from httpx import ASGITransport, AsyncClient
 
 from app.db.database import AsyncSessionLocal, Base, engine, get_db
 from app.main import app
+from app.models.contributor import Contributor
+from app.models.issue import Issue
+from app.models.repo import Repo
 from app.models.soroban import ContractEvent, SorobanContract, StorageMetric
 
 
@@ -85,3 +88,59 @@ async def seed_contracts(db_session):
     db_session.add(metric)
     await db_session.commit()
     return [contract]
+
+
+@pytest_asyncio.fixture()
+async def seed_drips_data(db_session):
+    """Seed sample Repo, Issue, and Contributor records."""
+    repo = Repo(
+        id=1,
+        name="HassanKorey/DripsLens",
+        language="Python",
+        multiplier=2,
+        issue_count=5,
+        health_score=98,
+        is_verified=True,
+    )
+    repo2 = Repo(
+        id=2,
+        name="stellar/soroban-example-dapp",
+        language="Rust",
+        multiplier=1,
+        issue_count=2,
+        health_score=85,
+        is_verified=False,
+    )
+    issue1 = Issue(
+        id=1,
+        title="Add health check uptime monitor",
+        url="https://github.com/HassanKorey/DripsLens/issues/5",
+        repo_id=1,
+        complexity="Trivial",
+        points=100,
+        is_claimed=False,
+    )
+    issue2 = Issue(
+        id=2,
+        title="Implement Soroban event indexing",
+        url="https://github.com/HassanKorey/DripsLens/issues/13",
+        repo_id=1,
+        complexity="Medium",
+        points=150,
+        is_claimed=True,
+    )
+    contributor1 = Contributor(
+        id=1,
+        github_username="HassanKorey",
+        merged_prs=18,
+        points_earned=2700,
+    )
+    contributor2 = Contributor(
+        id=2,
+        github_username="HirthikBalaji",
+        merged_prs=4,
+        points_earned=600,
+    )
+    db_session.add_all([repo, repo2, issue1, issue2, contributor1, contributor2])
+    await db_session.commit()
+    return {"repos": [repo, repo2], "issues": [issue1, issue2], "contributors": [contributor1, contributor2]}
