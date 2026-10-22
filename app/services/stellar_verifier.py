@@ -92,7 +92,7 @@ class StellarVerifier:
         raise RuntimeError("Unreachable retry state")
 
     async def verify_account(self, account_id: str | None) -> bool:
-        """Verify whether a Stellar account exists on Horizon.
+        """Verify whether a Stellar account exists on Horizon or a contract on Soroban.
 
         Returns True if 200 OK.
         Returns False if 404 Not Found, invalid format, or rate-limited/unavailable after retries.
@@ -104,6 +104,15 @@ class StellarVerifier:
         account_id = account_id.strip()
         if not account_id:
             return False
+
+        if account_id.startswith("C") and len(account_id) == 56:
+            try:
+                from app.soroban.client import get_ledger_entries
+                res = await get_ledger_entries([account_id])
+                return res is not None
+            except Exception as e:
+                logger.warning("Soroban contract verification failed for %s: %s", account_id, e)
+                return False
 
         try:
             response = await self._fetch_account_raw(account_id)
@@ -130,6 +139,22 @@ class StellarVerifier:
         account_id = account_id.strip()
         if len(account_id) != 56:
             return {"status": "unverified", "detail": "Account ID must be 56 characters"}
+
+        if account_id.startswith("C"):
+            try:
+                from app.soroban.client import get_ledger_entries
+                res = await get_ledger_entries([account_id])
+                if res is not None:
+                    return {
+                        "status": "verified",
+                        "account_id": account_id,
+                        "native_balance": "0",
+                        "detail": "Soroban smart contract verified on ledger",
+                    }
+                return {"status": "unverified", "account_id": account_id, "detail": "Contract not found on ledger"}
+            except Exception as e:
+                logger.warning("Error checking contract details for %s: %s", account_id, e)
+                return {"status": "unknown", "account_id": account_id, "detail": str(e)}
 
         try:
             response = await self._fetch_account_raw(account_id)
