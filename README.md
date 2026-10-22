@@ -141,17 +141,29 @@ DripsLens/
 │   │   ├── database.py         # SQLAlchemy async engine & session generator
 │   │   └── migrations/         # Alembic database revision scripts
 │   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── contributor.py      # Contributor leaderboard & points model
+│   │   ├── issue.py            # Ecosystem issue & bounty model
+│   │   ├── repo.py             # Tracked repository & health score model
 │   │   └── soroban.py          # SorobanContract, ContractEvent, StorageMetric
 │   ├── routers/                # FastAPI endpoint controllers
 │   │   ├── analytics.py        # /soroban/graph DAG invocation endpoint
+│   │   ├── contributors.py     # /leaderboard & /contributors/top rankings
+│   │   ├── health.py           # /health endpoint uptime & database telemetry
+│   │   ├── issues.py           # /issues filtering by complexity & claim status
+│   │   ├── repos.py            # /repos & /repos/{id}/health metrics
 │   │   ├── soroban.py          # /soroban/events, /metrics, /ttl, /health
 │   │   └── stream.py           # /soroban/stream/events SSE live stream
 │   ├── scheduler/              # Asynchronous scheduling engine
 │   │   └── tasks.py            # APScheduler setup & recurring indexing jobs
 │   ├── schemas/                # Pydantic serialization & validation schemas
 │   │   └── soroban.py          # ContractEventSchema, SorobanContractSchema
-│   ├── scrapers/               # External blockchain verification
-│   │   └── stellar.py          # Stellar Horizon account & SAC validation
+│   ├── scrapers/               # External blockchain verification shims
+│   │   ├── github_fetcher.py   # Backwards compatibility shim
+│   │   ├── stellar.py          # Stellar Horizon account & SAC validation
+│   │   └── stellar_verifier.py # Stellar account verification shim
+│   ├── services/               # Resilient external API & RPC clients
+│   │   ├── github_fetcher.py   # GitHub REST API client with tenacity rate limit backoff
+│   │   └── stellar_verifier.py # Stellar Horizon & Soroban contract verifier
 │   ├── soroban/                # Soroban domain logic & RPC clients
 │   │   ├── client.py           # JSON-RPC 2.0 client with tenacity retry policies
 │   │   ├── graph.py            # Cross-contract invocation DAG generator
@@ -162,18 +174,25 @@ DripsLens/
 │   │   └── soroban_explorer.html # Interactive event explorer UI
 │   ├── config.py               # Application settings & environment loader
 │   └── main.py                 # FastAPI application factory & router mounting
+├── drips-issues/               # Scoped Drips Wave issue backlog specifications
+│   └── README.md               # 10 meaningful issues with complexity tiers (100, 150, 200 pts)
 ├── tests/                      # Automated test suite
 │   ├── conftest.py             # Pytest fixtures & isolated async SQLite DB
+│   ├── test_api_routes_integration.py # Route integration & offline fallback tests
 │   ├── test_cache.py           # Redis cache decorator tests
 │   ├── test_config.py          # Configuration loading tests
 │   ├── test_database.py        # Database ORM CRUD tests
+│   ├── test_health.py          # /health uptime & monotonicity tests
 │   ├── test_scrapers.py        # Stellar Horizon verification tests
+│   ├── test_services_resilience.py # Tenacity backoff & 429/503 resilience tests
 │   ├── test_soroban_client.py  # Soroban JSON-RPC client tests
 │   ├── test_soroban_endpoints.py # API router & SSE streaming tests
 │   ├── test_soroban_graph_and_wasm.py # DAG builder & WASM analyzer tests
 │   └── test_soroban_scrapers.py# Indexer & scraper task tests
 ├── .env.example                # Example environment variables template
 ├── .github/workflows/ci.yml    # GitHub Actions CI pipeline
+├── CONTRIBUTING.md             # Contribution guidelines & complexity point tiers
+├── MAINTAINERS.md              # Multi-maintainer governance & review workflows
 ├── alembic.ini                 # Alembic configuration
 ├── docker-compose.yml          # Docker Compose multi-service definition
 ├── Dockerfile                  # Production container definition
