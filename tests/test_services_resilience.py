@@ -174,3 +174,53 @@ async def test_resilient_job_wrapper_catches_errors():
 
     # Should not raise exception
     await resilient_job_wrapper(failing_job)
+
+
+@pytest.mark.asyncio
+async def test_stellar_verifier_contract_routing_success():
+    verifier = StellarVerifier()
+    contract_id = "C" + "A" * 55
+    with patch("app.soroban.client.get_ledger_entries", new_callable=AsyncMock) as mock_entries:
+        mock_entries.return_value = {"entries": [{"key": "abc"}]}
+        result = await verifier.verify_account(contract_id)
+        assert result is True
+        mock_entries.assert_awaited_once_with([contract_id])
+
+        details = await verifier.check_account_details(contract_id)
+        assert details["status"] == "verified"
+        assert "Soroban" in details["detail"]
+
+
+@pytest.mark.asyncio
+async def test_stellar_verifier_contract_routing_failure():
+    verifier = StellarVerifier()
+    contract_id = "C" + "B" * 55
+    with patch("app.soroban.client.get_ledger_entries", new_callable=AsyncMock) as mock_entries:
+        mock_entries.side_effect = Exception("Soroban RPC down")
+        result = await verifier.verify_account(contract_id)
+        assert result is False
+
+        details = await verifier.check_account_details(contract_id)
+        assert details["status"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_soroban_rpc_client_429_retry_and_recovery():
+    from app.soroban.client import rpc_request
+
+    resp_429 = httpx.Response(
+        status_code=429,
+        headers={"Retry-After": "1"},
+        request=httpx.Request("POST", "https://soroban-testnet.stellar.org:443"),
+    )
+    resp_200 = httpx.Response(
+        status_code=200,
+        json={"jsonrpc": "2.0", "id": 1, "result": {"latestLedger": 1000}},
+        request=httpx.Request("POST", "https://soroban-testnet.stellar.org:443"),
+    )
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.side_effect = [resp_429, resp_200]
+        res = await rpc_request("getLatestLedger")
+        assert res == {"latestLedger": 1000}
+        assert mock_post.call_count == 2
