@@ -28,7 +28,7 @@ async def list_issues(
     if is_claimed is not None:
         stmt = stmt.where(Issue.is_claimed == is_claimed)
 
-    stmt = stmt.offset(skip).limit(limit)
+    stmt = stmt.order_by(Issue.id.asc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     issues = result.scalars().all()
 

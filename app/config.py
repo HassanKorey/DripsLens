@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     initial_refresh_on_startup: bool = True
 
     # --- Database ---
-    database_url: str = "sqlite:///./dripslens.db"
+    database_url: str = "sqlite+aiosqlite:///./dripslens.db"
 
     # --- Redis / cache ---
     redis_url: str = ""  # empty -> in-process fallback cache

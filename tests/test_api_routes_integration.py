@@ -10,6 +10,8 @@ import httpx
 import pytest
 from httpx import AsyncClient
 
+from app.db.database import get_db
+from app.main import app
 from app.services.github_fetcher import GitHubClient
 from app.services.stellar_verifier import StellarVerifier
 
@@ -148,3 +150,66 @@ async def test_offline_fallback_mode_github_network_down():
         # Should catch error and return empty list rather than crashing
         issues = await client.fetch_open_issues("HassanKorey/DripsLens")
         assert issues == []
+
+
+@pytest.mark.asyncio
+async def test_health_database_disconnected(async_client: AsyncClient):
+    """GET /health reports disconnected status gracefully when DB fails."""
+    mock_db = AsyncMock()
+    mock_db.execute.side_effect = RuntimeError("Database connection pool exhausted")
+
+    prev_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = lambda: mock_db
+    try:
+        response = await async_client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["database"] == "disconnected"
+    finally:
+        if prev_override is not None:
+            app.dependency_overrides[get_db] = prev_override
+        else:
+            app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.mark.asyncio
+async def test_repos_pagination_and_empty_filter(async_client: AsyncClient, seed_drips_data):
+    """Verify /repos pagination skip/limit and non-matching filters return empty list."""
+    # Pagination test
+    resp = await async_client.get("/repos?skip=1&limit=1")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["name"] == "stellar/soroban-example-dapp"
+
+    # Non-matching language filter
+    empty_resp = await async_client.get("/repos?language=NonExistentLang")
+    assert empty_resp.status_code == 200
+    assert empty_resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_issues_unclaimed_filter_and_empty(async_client: AsyncClient, seed_drips_data):
+    """Verify /issues handles unclaimed filter and non-matching complexity."""
+    resp = await async_client.get("/issues?is_claimed=false")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["is_claimed"] is False
+
+    empty_resp = await async_client.get("/issues?complexity=NonExistentComplexity")
+    assert empty_resp.status_code == 200
+    assert empty_resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_html_dashboard_and_root_endpoints(async_client: AsyncClient):
+    """Verify root / and /soroban/explorer return valid HTML responses."""
+    resp_root = await async_client.get("/")
+    assert resp_root.status_code == 200
+    assert "text/html" in resp_root.headers.get("content-type", "")
+
+    resp_exp = await async_client.get("/soroban/explorer")
+    assert resp_exp.status_code == 200
+    assert "text/html" in resp_exp.headers.get("content-type", "")

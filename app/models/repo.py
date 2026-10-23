@@ -1,6 +1,6 @@
 """SQLAlchemy model for tracked repositories."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 
@@ -15,6 +15,6 @@ class Repo(Base):
     language = Column(String, index=True, nullable=True)
     multiplier = Column(Integer, default=1)
     issue_count = Column(Integer, default=0)
-    last_activity = Column(DateTime, default=datetime.utcnow)
+    last_activity = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     health_score = Column(Integer, default=0)
     is_verified = Column(Boolean, default=False)
