@@ -1,9 +1,7 @@
-"""Tests for the /health endpoint contract."""
+"""Tests for the /health endpoint contract and uptime monitoring."""
 
 import time
 from datetime import datetime
-
-from tests.conftest import *  # noqa: F401,F403
 
 
 def test_health_status_and_metadata(client):
@@ -16,6 +14,8 @@ def test_health_status_and_metadata(client):
     assert data["app"] == "DripsLens"
     assert isinstance(data["version"], str)
     assert len(data["version"]) > 0
+    assert data["database"] == "connected"
+    assert "scheduler" in data
 
 
 def test_health_uptime_non_negative_and_monotonic(client):

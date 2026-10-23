@@ -1,12 +1,9 @@
-import os
+"""Stellar scraper module delegating to resilient stellar_verifier service."""
 
-import httpx
+from app.services.stellar_verifier import (
+    STELLAR_HORIZON_URL,
+    check_stellar_account,
+    verify_stellar_account,
+)
 
-STELLAR_HORIZON_URL = os.getenv("STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org")
-
-
-async def verify_stellar_account(account_id: str) -> bool:
-    # Verifies discovered public keys against Stellar Horizon API
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{STELLAR_HORIZON_URL}/accounts/{account_id}")
-        return response.status_code == 200
+__all__ = ["STELLAR_HORIZON_URL", "check_stellar_account", "verify_stellar_account"]
