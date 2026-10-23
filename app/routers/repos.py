@@ -28,7 +28,7 @@ async def list_repos(
     if multiplier:
         stmt = stmt.where(Repo.multiplier == multiplier)
 
-    stmt = stmt.offset(skip).limit(limit)
+    stmt = stmt.order_by(Repo.id.asc()).offset(skip).limit(limit)
     result = await db.execute(stmt)
     repos = result.scalars().all()
 

@@ -10,6 +10,8 @@ import httpx
 import pytest
 from httpx import AsyncClient
 
+from app.db.database import get_db
+from app.main import app
 from app.services.github_fetcher import GitHubClient
 from app.services.stellar_verifier import StellarVerifier
 
@@ -153,12 +155,10 @@ async def test_offline_fallback_mode_github_network_down():
 @pytest.mark.asyncio
 async def test_health_database_disconnected(async_client: AsyncClient):
     """GET /health reports disconnected status gracefully when DB fails."""
-    from app.db.database import get_db
-    from app.main import app
-
     mock_db = AsyncMock()
     mock_db.execute.side_effect = RuntimeError("Database connection pool exhausted")
 
+    prev_override = app.dependency_overrides.get(get_db)
     app.dependency_overrides[get_db] = lambda: mock_db
     try:
         response = await async_client.get("/health")
@@ -167,7 +167,10 @@ async def test_health_database_disconnected(async_client: AsyncClient):
         assert data["status"] == "ok"
         assert data["database"] == "disconnected"
     finally:
-        app.dependency_overrides.pop(get_db, None)
+        if prev_override is not None:
+            app.dependency_overrides[get_db] = prev_override
+        else:
+            app.dependency_overrides.pop(get_db, None)
 
 
 @pytest.mark.asyncio
