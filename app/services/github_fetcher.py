@@ -114,7 +114,9 @@ class GitHubClient:
                             raise GitHubRateLimited("GitHub primary API rate limit exceeded", reset_timestamp=reset_val)
 
                         # Check Secondary Rate Limit (403 with Retry-After) or 429
-                        if response.status_code == 429 or (response.status_code == 403 and "Retry-After" in response.headers):
+                        if response.status_code == 429 or (
+                            response.status_code == 403 and "Retry-After" in response.headers
+                        ):
                             retry_after_hdr = response.headers.get("Retry-After")
                             wait_sec = float(retry_after_hdr) if retry_after_hdr and retry_after_hdr.isdigit() else 2.0
                             wait_sec = min(wait_sec, 30.0) + random.uniform(0.1, 0.5)
