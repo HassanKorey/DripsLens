@@ -1,9 +1,10 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-import app.models.soroban  # noqa: F401
+import app.models  # noqa: F401
 from app.db.database import Base
 
 config = context.config
@@ -14,8 +15,21 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def get_sync_url() -> str:
+    """Return database URL formatted with synchronous driver for Alembic migrations."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        url = config.get_main_option("sqlalchemy.url", "sqlite:///dripslens.db")
+
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    elif url.startswith("sqlite+aiosqlite://"):
+        url = url.replace("sqlite+aiosqlite://", "sqlite://", 1)
+    return url
+
+
 def run_migrations_offline() -> None:
-    url = config.get_main_option("sqlalchemy.url")
+    url = get_sync_url()
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -28,8 +42,10 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = get_sync_url()
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
