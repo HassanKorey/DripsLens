@@ -1,0 +1,50 @@
+site_name: DripsLens
+site_description: "Real-time analytics engine and search platform that makes the Drips Wave ecosystem trackable, searchable, and verifiable."
+site_author: "Hassan Akorede (EDUN) & Co-Maintainers"
+site_url: "https://HassanKorey.github.io/DripsLens"
+repo_url: "https://github.com/HassanKorey/DripsLens"
+repo_name: "HassanKorey/DripsLens"
+
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: purple
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Overview: index.md
+  - System Architecture: architecture.md
+  - Ingestion Pipeline: ingestion-pipeline.md
+  - Data Models: data-models.md
+  - API Reference: api-reference.md
