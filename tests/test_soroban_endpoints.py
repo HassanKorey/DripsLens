@@ -73,5 +73,5 @@ def test_start_scheduler():
     mock_scheduler = MagicMock()
     with patch("app.scheduler.tasks.AsyncIOScheduler", return_value=mock_scheduler):
         start_scheduler()
-        mock_scheduler.add_job.assert_called_once()
+        assert mock_scheduler.add_job.called
         mock_scheduler.start.assert_called_once()

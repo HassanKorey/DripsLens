@@ -39,7 +39,7 @@ class StellarHorizonServiceUnavailableError(Exception):
 
 
 class StellarVerifier:
-    """Resilient verifier for Stellar Horizon accounts and contracts."""
+    """Resilient verifier for Stellar Horizon accounts, contracts, and RPC endpoints."""
 
     def __init__(
         self,
@@ -51,8 +51,9 @@ class StellarVerifier:
         self.max_retries = max_retries
         self.timeout = timeout
 
-    async def _fetch_account_raw(self, account_id: str) -> httpx.Response:
-        """Fetch account record from Horizon with exponential backoff for transient errors."""
+    async def _request_raw(self, endpoint: str, params: dict[str, Any] | None = None) -> httpx.Response:
+        """Execute a raw request to Horizon with exponential backoff for transient errors."""
+        url = endpoint if endpoint.startswith("http") else f"{self.horizon_url}/{endpoint.lstrip('/')}"
         retryer = AsyncRetrying(
             stop=stop_after_attempt(self.max_retries),
             wait=wait_exponential(multiplier=1, min=1, max=10),
@@ -71,25 +72,46 @@ class StellarVerifier:
         async for attempt in retryer:
             with attempt:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
-                    response = await client.get(f"{self.horizon_url}/accounts/{account_id}")
+                    response = await client.get(url, params=params)
 
                     if response.status_code == 429:
                         retry_after_str = response.headers.get("Retry-After")
                         retry_after = float(retry_after_str) if retry_after_str and retry_after_str.isdigit() else None
                         logger.warning(
-                            "Stellar Horizon rate limited (429) for account %s, retry-after=%s",
-                            account_id,
+                            "Stellar Horizon rate limited (429) for %s, retry-after=%s",
+                            url,
                             retry_after,
                         )
                         raise StellarHorizonRateLimitError("Horizon rate limit exceeded", retry_after=retry_after)
 
                     if response.status_code == 503:
-                        logger.warning("Stellar Horizon service unavailable (503) for account %s", account_id)
+                        logger.warning("Stellar Horizon service unavailable (503) for %s", url)
                         raise StellarHorizonServiceUnavailableError("Horizon service temporarily unavailable")
 
                     return response
 
         raise RuntimeError("Unreachable retry state")
+
+    async def _fetch_account_raw(self, account_id: str) -> httpx.Response:
+        """Fetch account record from Horizon with exponential backoff for transient errors."""
+        return await self._request_raw(f"accounts/{account_id}")
+
+    async def query_horizon_rpc(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Query arbitrary Horizon RPC/REST endpoints with rate-limit and backoff protection."""
+        try:
+            response = await self._request_raw(endpoint, params=params)
+            response.raise_for_status()
+            data = response.json()
+            return data if isinstance(data, dict) else {"data": data}
+        except (RetryError, StellarHorizonRateLimitError) as e:
+            logger.warning("Horizon RPC query failed due to rate limits for %s: %s", endpoint, e)
+            return {"error": "rate_limited", "detail": str(e)}
+        except StellarHorizonServiceUnavailableError as e:
+            logger.warning("Horizon RPC query 503 service unavailable for %s: %s", endpoint, e)
+            return {"error": "service_unavailable", "detail": str(e)}
+        except Exception as e:
+            logger.error("Horizon RPC query error on %s: %s", endpoint, e)
+            return {"error": "request_failed", "detail": str(e)}
 
     async def verify_account(self, account_id: str | None) -> bool:
         """Verify whether a Stellar account exists on Horizon.
@@ -176,6 +198,8 @@ class StellarVerifier:
 # Global helper instance
 _default_verifier = StellarVerifier()
 
+HorizonClient = StellarVerifier
+
 
 async def verify_stellar_account(account_id: str) -> bool:
     """Convenience helper to verify a Stellar public key."""
@@ -185,3 +209,8 @@ async def verify_stellar_account(account_id: str) -> bool:
 async def check_stellar_account(account_id: str) -> dict[str, Any]:
     """Convenience helper for detailed account verification."""
     return await _default_verifier.check_account_details(account_id)
+
+
+async def query_horizon_rpc(endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Convenience helper to query Horizon RPC endpoint."""
+    return await _default_verifier.query_horizon_rpc(endpoint, params=params)
