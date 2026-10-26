@@ -174,3 +174,66 @@ async def test_resilient_job_wrapper_catches_errors():
 
     # Should not raise exception
     await resilient_job_wrapper(failing_job)
+
+
+@pytest.mark.asyncio
+async def test_horizon_rpc_query_success_and_rate_limit_retry():
+    verifier = StellarVerifier(horizon_url="https://horizon-testnet.stellar.org", max_retries=3)
+    resp_429 = httpx.Response(
+        status_code=429,
+        headers={"Retry-After": "1"},
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/fee_stats"),
+    )
+    resp_200 = httpx.Response(
+        status_code=200,
+        json={"fee_charged": {"mode": "100"}},
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/fee_stats"),
+    )
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.side_effect = [resp_429, resp_200]
+        data = await verifier.query_horizon_rpc("fee_stats")
+        assert "fee_charged" in data
+        assert mock_get.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_horizon_rpc_query_503_service_unavailable():
+    verifier = StellarVerifier(horizon_url="https://horizon-testnet.stellar.org", max_retries=1)
+    resp_503 = httpx.Response(
+        status_code=503,
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/ledgers"),
+    )
+
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = resp_503
+        data = await verifier.query_horizon_rpc("ledgers")
+        assert data["error"] == "service_unavailable"
+
+
+def test_run_database_migrations_clean_execution():
+    from app.scheduler.tasks import run_database_migrations
+    # Run with existing alembic configuration
+    result = run_database_migrations()
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_execute_with_db_reconnect_recovers():
+    from sqlalchemy.exc import OperationalError
+
+    from app.scheduler.tasks import execute_with_db_reconnect
+
+    call_count = 0
+
+    async def flaky_task(session):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise OperationalError("server closed the connection unexpectedly", None, None)
+        return "success"
+
+    with patch("asyncio.sleep", return_value=None):
+        result = await execute_with_db_reconnect(flaky_task, max_retries=3, retry_delay=0.01)
+        assert result == "success"
+        assert call_count == 2
