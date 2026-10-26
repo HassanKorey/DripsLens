@@ -103,6 +103,62 @@ async def test_issues_endpoint(async_client: AsyncClient, seed_drips_data):
 
 
 @pytest.mark.asyncio
+async def test_repos_pagination_and_empty_filters(async_client: AsyncClient, seed_drips_data):
+    """GET /repos verifies pagination parameters (skip, limit) and empty filter matches."""
+    # Test pagination
+    paginated_resp = await async_client.get("/repos?skip=1&limit=1")
+    assert paginated_resp.status_code == 200
+    p_data = paginated_resp.json()
+    assert len(p_data) == 1
+    assert p_data[0]["name"] == "stellar/soroban-example-dapp"
+
+    # Test non-matching filter
+    empty_resp = await async_client.get("/repos?language=Haskell")
+    assert empty_resp.status_code == 200
+    assert empty_resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_issues_pagination_and_unclaimed_filter(async_client: AsyncClient, seed_drips_data):
+    """GET /issues verifies pagination and is_claimed=false filtering."""
+    unclaimed_resp = await async_client.get("/issues?is_claimed=false")
+    assert unclaimed_resp.status_code == 200
+    u_data = unclaimed_resp.json()
+    assert len(u_data) == 1
+    assert u_data[0]["is_claimed"] is False
+    assert u_data[0]["points"] == 100
+
+    # Test pagination skip
+    skip_resp = await async_client.get("/issues?skip=1&limit=1")
+    assert skip_resp.status_code == 200
+    s_data = skip_resp.json()
+    assert len(s_data) == 1
+    assert s_data[0]["id"] == 2
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_pagination(async_client: AsyncClient, seed_drips_data):
+    """GET /leaderboard verifies limit query parameter."""
+    resp = await async_client.get("/leaderboard?limit=1")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["github_username"] == "HassanKorey"
+
+
+@pytest.mark.asyncio
+async def test_health_endpoint_db_disconnected_handling(async_client: AsyncClient):
+    """GET /health reports database: disconnected when DB connection throws error."""
+    with patch("app.routers.health.AsyncSession.execute", new_callable=AsyncMock) as mock_exec:
+        mock_exec.side_effect = Exception("DB Connection Refused")
+        response = await async_client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["database"] == "disconnected"
+
+
+@pytest.mark.asyncio
 async def test_leaderboard_endpoint(async_client: AsyncClient, seed_drips_data):
     """GET /leaderboard and /contributors/top return ranked contributors."""
     response = await async_client.get("/leaderboard")
@@ -147,4 +203,38 @@ async def test_offline_fallback_mode_github_network_down():
         mock_get.side_effect = httpx.ConnectError("DNS lookup failed")
         # Should catch error and return empty list rather than crashing
         issues = await client.fetch_open_issues("HassanKorey/DripsLens")
+        assert issues == []
+
+
+@pytest.mark.asyncio
+async def test_offline_fallback_mode_stellar_503_and_429_graceful():
+    """Verify StellarVerifier gracefully reports false without crashing when 503 or 429 occur."""
+    verifier = StellarVerifier(horizon_url="https://horizon-mock.stellar.org", max_retries=1)
+
+    resp_503 = httpx.Response(status_code=503, request=httpx.Request("GET", "https://horizon-mock.stellar.org/accounts/GA"))
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = resp_503
+        verified = await verifier.verify_account("GA" + "A" * 54)
+        assert verified is False
+
+    resp_429 = httpx.Response(status_code=429, headers={"Retry-After": "10"}, request=httpx.Request("GET", "https://horizon-mock.stellar.org/accounts/GA"))
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = resp_429
+        verified = await verifier.verify_account("GA" + "A" * 54)
+        assert verified is False
+
+
+@pytest.mark.asyncio
+async def test_offline_fallback_mode_github_rate_limit_graceful():
+    """Verify fetch_issues_for_repo returns empty list on primary rate limit exhaustion."""
+    from app.services.github_fetcher import fetch_issues_for_repo
+
+    resp_403 = httpx.Response(
+        status_code=403,
+        headers={"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1730000000"},
+        request=httpx.Request("GET", "https://api.github.com/repos/HassanKorey/DripsLens/issues"),
+    )
+    with patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get:
+        mock_get.return_value = resp_403
+        issues = await fetch_issues_for_repo("HassanKorey/DripsLens")
         assert issues == []
