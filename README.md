@@ -5,23 +5,14 @@
 **Real-Time Analytics Engine & Search Platform for the Drips Wave Ecosystem**
 
 [![CI](https://github.com/HassanKorey/DripsLens/actions/workflows/ci.yml/badge.svg)](https://github.com/HassanKorey/DripsLens/actions/workflows/ci.yml)
-[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![Soroban RPC](https://img.shields.io/badge/Soroban-RPC%20v2.0-8A2BE2.svg)](https://soroban.stellar.org/)
-[![Stellar Horizon](https://img.shields.io/badge/Stellar-Horizon%20API-black.svg?logo=stellar&logoColor=white)](https://developers.stellar.org/)
-[![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Type Checked: Mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
-[![Coverage](https://img.shields.io/badge/coverage-90%25%2B-brightgreen.svg)](https://pytest.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-[Key Features](#-key-features) •
-[Architecture](#-system-architecture) •
-[Quickstart](#-getting-started) •
-[API Reference](#-api-reference) •
-[Configuration](#-configuration--environment-variables) •
-[Testing](#-testing--code-quality) •
-[Governance](#-governance--maintainers) •
-[Contributing](#-contributing)
+**[Documentation Portal](https://HassanKorey.github.io/DripsLens)** •
+**[Search Portal](https://dripslens.onrender.com)** •
+**[API Docs](https://dripslens.onrender.com/docs)** •
+**[Health Check](https://dripslens.onrender.com/health)**
 
 </div>
 
@@ -29,22 +20,19 @@
 
 ## 📖 Overview
 
-**DripsLens is a real-time analytics engine and search platform that makes the Drips Wave ecosystem trackable, searchable, and verifiable.** Built with Python 3.12 and FastAPI, DripsLens bridges the gap between on-chain Stellar smart contracts, ecosystem bounties, and real-time developer observability.
+**DripsLens is a real-time analytics engine and search platform that makes the Drips Wave ecosystem trackable, searchable, and verifiable.**
 
-DripsLens automates the ingestion of Soroban event logs, monitors repository health and issue bounties across the Drips Wave ecosystem, tracks contributor leaderboards, evaluates compiled WebAssembly (WASM) bytecode health, monitors state storage Time-To-Live (TTL) rent boundaries to prevent state archival, resolves cross-contract invocation dependencies into directed acyclic graphs (DAG), and streams real-time contract execution feeds directly to web clients.
+Built with Python 3.12 and FastAPI, DripsLens bridges off-chain developer activities, bounty issues, and on-chain Stellar smart contracts. DripsLens automates Soroban contract event ingestion, monitors repository health and issue bounties across the Drips Wave ecosystem, ranks contributor leaderboards, evaluates compiled WebAssembly (WASM) bytecode health, tracks state storage Time-To-Live (TTL) rent boundaries, maps cross-contract invocation Directed Acyclic Graphs (DAG), and streams real-time contract execution feeds directly to web clients.
 
 ---
 
-## ⚡ Key Features
+## 🌐 Live Deployments & Essential Links
 
-- **🔮 Soroban RPC Event Indexing**: Automated, resilient background worker that periodically polls JSON-RPC 2.0 endpoints (`getEvents`) with exponential backoff and error recovery, persisting event envelopes into asynchronous relational storage.
-- **🔬 WASM Bytecode Analyzer & Health Scoring**: Static byte analysis inspecting size thresholds, function exports, and contract footprint to calculate health scores (0–100) and optimization recommendations.
-- **⏳ Contract State Storage & TTL Tracking**: Monitors ledger expiration sequences (`liveUntilLedgerSeq`) and computes remaining live days to alert maintainers before contract instance rent expires.
-- **🕸️ Cross-Contract Invocation Graph (DAG)**: Discovers and maps inter-contract calls from event histories, outputting Directed Acyclic Graph topology nodes and edges for visual dependency analysis.
-- **📡 Real-Time Live Event Streaming (SSE)**: Built-in Server-Sent Events endpoint powered by `sse-starlette` providing low-latency event broadcasts to client dashboards, monitoring agents, and bots.
-- **🛡️ Stellar Horizon Account & SAC Verification**: Validates public key addresses, Stellar Asset Contracts (SAC), and account balances directly against the Stellar Horizon REST API.
-- **⚡ High-Throughput Resilient Caching**: Non-blocking caching layer powered by Redis with transparent in-memory and error-safe fallbacks, preventing database pressure during traffic spikes.
-- **📊 Interactive Web Explorer**: Modern responsive UI built with Jinja2 and Tailwind CSS for real-time visualization of indexed contract telemetry.
+- **Documentation Portal**: [https://HassanKorey.github.io/DripsLens](https://HassanKorey.github.io/DripsLens)
+- **Search Portal**: [https://dripslens.onrender.com](https://dripslens.onrender.com)
+- **Public API Docs (Swagger UI)**: [https://dripslens.onrender.com/docs](https://dripslens.onrender.com/docs)
+- **Alternative Docs (ReDoc)**: [https://dripslens.onrender.com/redoc](https://dripslens.onrender.com/redoc)
+- **Health Check Endpoint**: [https://dripslens.onrender.com/health](https://dripslens.onrender.com/health)
 
 ---
 
@@ -61,457 +49,148 @@ flowchart TD
     end
 
     subgraph FastAPILayer["DripsLens FastAPI Core (app/main.py)"]
+        RouterHealth["Health Router (/health)"]
+        RouterRepos["Repos Router (/repos)"]
+        RouterIssues["Issues Router (/issues)"]
+        RouterContrib["Contributors Router (/leaderboard)"]
         RouterSoroban["Soroban Router (/soroban)"]
-        RouterAnalytics["Analytics Router (/soroban/graph)"]
         RouterStream["SSE Stream Router (/soroban/stream)"]
     end
 
-    subgraph CacheAndServices["Services & Resilience Layer"]
+    subgraph Services["Services & Resilience Layer"]
         RedisCache["Redis Cache Layer (app/cache)"]
         WasmAnalyzer["WASM Analyzer (app/soroban/wasm_analyzer)"]
         GraphEngine["DAG Graph Engine (app/soroban/graph)"]
         RPCClient["Soroban RPC Client (httpx + tenacity)"]
-        HorizonClient["Stellar Horizon Verifier (app/scrapers)"]
+        HorizonClient["Stellar Horizon Verifier (app/services)"]
+        GitHubClient["GitHub REST Client (app/services)"]
     end
 
     subgraph BackgroundWorkers["Background Processing (APScheduler)"]
         Scheduler["AsyncIOScheduler (app/scheduler)"]
-        Indexer["Event Indexer Worker (app/soroban/indexer)"]
+        EventIndexer["Event Indexer (ingest_soroban_events)"]
+        RepoSync["Repo Sync Worker (sync_wave_repositories)"]
     end
 
     subgraph DataStorage["Data Storage"]
-        DB[(PostgreSQL / SQLite with SQLAlchemy 2.0 Async)]
+        DB[(PostgreSQL / SQLite via SQLAlchemy 2.0 Async)]
+        Alembic["Alembic Schema Migrations"]
     end
 
-    subgraph StellarEcosystem["Stellar Blockchain & Soroban Network"]
+    subgraph ExternalEcosystem["External Networks & APIs"]
         SorobanNode["Soroban RPC Node (JSON-RPC 2.0)"]
         HorizonNode["Stellar Horizon REST API"]
+        GitHubAPI["GitHub REST API v3"]
     end
 
     %% Client Interactions
-    UI --> RouterSoroban
-    Consumer --> RouterSoroban
-    Consumer --> RouterAnalytics
+    UI --> FastAPILayer
+    Consumer --> FastAPILayer
     SSEClient --> RouterStream
 
     %% Router to Services
     RouterSoroban --> RedisCache
     RouterSoroban --> WasmAnalyzer
-    RouterAnalytics --> GraphEngine
-    RouterSoroban --> DB
-    RedisCache -.-> DB
+    RouterSoroban --> GraphEngine
+    RouterRepos --> DB
+    RouterIssues --> DB
+    RouterContrib --> DB
+    RouterHealth --> DB
 
-    %% Background Engine Interactions
-    Scheduler --> Indexer
-    Indexer --> RPCClient
-    Indexer --> DB
+    %% Workers & Services
+    Scheduler --> EventIndexer
+    Scheduler --> RepoSync
+    EventIndexer --> RPCClient
+    RepoSync --> GitHubClient
+    RepoSync --> HorizonClient
+    EventIndexer --> DB
+    RepoSync --> DB
+    Alembic --> DB
 
-    %% External Blockchain Integrations
+    %% External Connections
     RPCClient --> SorobanNode
     HorizonClient --> HorizonNode
+    GitHubClient --> GitHubAPI
 ```
 
 ---
 
-## 🧰 Tech Stack
+## ⚡ Key Features
 
-| Domain | Technologies & Libraries |
-| :--- | :--- |
-| **Framework & Web** | [FastAPI](https://fastapi.tiangolo.com/), [Uvicorn](https://www.uvicorn.org/), [Starlette](https://www.starlette.io/), [SSE-Starlette](https://github.com/sysid/sse-starlette) |
-| **Language & Typing** | [Python 3.10+](https://www.python.org/), [Pydantic v2](https://docs.pydantic.dev/), [Pydantic-Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) |
-| **Database & ORM** | [PostgreSQL 15](https://www.postgresql.org/), [SQLAlchemy 2.0 (Async)](https://www.sqlalchemy.org/), [asyncpg](https://github.com/MagicStack/asyncpg), [aiosqlite](https://github.com/omnilib/aiosqlite), [Alembic](https://alembic.sqlalchemy.org/) |
-| **Caching Layer** | [Redis 7](https://redis.io/), [redis-py](https://github.com/redis/redis-py) (with graceful in-memory degradation) |
-| **Blockchain / Web3** | [Stellar Python SDK](https://github.com/StellarCN/py-stellar-base), Soroban JSON-RPC 2.0, Stellar Horizon API |
-| **HTTP & Resilience** | [HTTPX](https://www.python-httpx.org/), [Tenacity](https://tenacity.readthedocs.io/) (exponential backoff & retry) |
-| **Task Scheduling** | [APScheduler](https://apscheduler.readthedocs.io/) (`AsyncIOScheduler`) |
-| **Frontend & Templates** | [Jinja2](https://jinja.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/) |
-| **Testing & Quality** | [Pytest](https://pytest.org/), [Pytest-Asyncio](https://github.com/pytest-dev/pytest-asyncio), [Pytest-Cov](https://github.com/pytest-dev/pytest-cov), [Ruff](https://astral.sh/ruff), [Mypy](https://mypy-lang.org/) |
-| **DevOps & Containers** | [Docker](https://www.docker.com/), [Docker Compose](https://docs.docker.com/compose/), [Render](https://render.com/) |
+- **🔮 Soroban RPC Event Indexing**: Automated background worker that polls JSON-RPC 2.0 endpoints (`getEvents`) with tenacity exponential backoff and error recovery.
+- **🛡️ Fault-Tolerant Rate Limiting**: Exponential backoff retry logic handling HTTP 429 and 503 errors gracefully across Stellar Horizon and GitHub REST APIs.
+- **🔬 WASM Bytecode Analyzer & Health Scoring**: Static byte analysis inspecting size thresholds, function exports, and footprint to calculate health scores (0–100).
+- **⏳ Contract State Storage & TTL Tracking**: Monitors ledger expiration sequences (`liveUntilLedgerSeq`) and computes remaining live days before instance rent expires.
+- **🕸️ Cross-Contract Invocation Graph (DAG)**: Discovers and maps inter-contract calls from event histories, outputting Directed Acyclic Graph topology nodes and edges.
+- **📡 Real-Time Live Event Streaming (SSE)**: Built-in Server-Sent Events endpoint powered by `sse-starlette` providing low-latency broadcasts to clients.
+- **🗄️ Database & Scheduler Integrity**: Automatic schema migrations cleanly executed via `alembic upgrade head` and connection pre-ping reconnection handling.
+- **📊 Interactive Web Explorer**: Modern responsive UI for visualizing tracked repositories, bounties, and indexed contracts.
 
 ---
 
-## 📂 Project Structure
+## 🚀 Quickstart
 
-```text
-DripsLens/
-├── app/
-│   ├── cache/                  # Caching layer
-│   │   └── redis_client.py     # Redis client & @cache_response decorator with fallback
-│   ├── db/                     # Database access & migrations
-│   │   ├── database.py         # SQLAlchemy async engine & session generator
-│   │   └── migrations/         # Alembic database revision scripts
-│   ├── models/                 # SQLAlchemy ORM models
-│   │   └── soroban.py          # SorobanContract, ContractEvent, StorageMetric
-│   ├── routers/                # FastAPI endpoint controllers
-│   │   ├── analytics.py        # /soroban/graph DAG invocation endpoint
-│   │   ├── soroban.py          # /soroban/events, /metrics, /ttl, /health
-│   │   └── stream.py           # /soroban/stream/events SSE live stream
-│   ├── scheduler/              # Asynchronous scheduling engine
-│   │   └── tasks.py            # APScheduler setup & recurring indexing jobs
-│   ├── schemas/                # Pydantic serialization & validation schemas
-│   │   └── soroban.py          # ContractEventSchema, SorobanContractSchema
-│   ├── scrapers/               # External blockchain verification
-│   │   └── stellar.py          # Stellar Horizon account & SAC validation
-│   ├── soroban/                # Soroban domain logic & RPC clients
-│   │   ├── client.py           # JSON-RPC 2.0 client with tenacity retry policies
-│   │   ├── graph.py            # Cross-contract invocation DAG generator
-│   │   ├── indexer.py          # Background polling & event envelope ingestion
-│   │   └── wasm_analyzer.py    # Bytecode analyzer & health scoring
-│   ├── static/                 # Static assets (CSS, JS)
-│   ├── templates/              # Jinja2 dashboard templates
-│   │   └── soroban_explorer.html # Interactive event explorer UI
-│   ├── config.py               # Application settings & environment loader
-│   └── main.py                 # FastAPI application factory & router mounting
-├── tests/                      # Automated test suite
-│   ├── conftest.py             # Pytest fixtures & isolated async SQLite DB
-│   ├── test_cache.py           # Redis cache decorator tests
-│   ├── test_config.py          # Configuration loading tests
-│   ├── test_database.py        # Database ORM CRUD tests
-│   ├── test_scrapers.py        # Stellar Horizon verification tests
-│   ├── test_soroban_client.py  # Soroban JSON-RPC client tests
-│   ├── test_soroban_endpoints.py # API router & SSE streaming tests
-│   ├── test_soroban_graph_and_wasm.py # DAG builder & WASM analyzer tests
-│   └── test_soroban_scrapers.py# Indexer & scraper task tests
-├── .env.example                # Example environment variables template
-├── .github/workflows/ci.yml    # GitHub Actions CI pipeline
-├── alembic.ini                 # Alembic configuration
-├── docker-compose.yml          # Docker Compose multi-service definition
-├── Dockerfile                  # Production container definition
-├── pyproject.toml              # Project metadata & tool configurations (Ruff, Mypy, Pytest)
-├── render.yaml                 # Render cloud deployment blueprint
-├── requirements.txt            # Production dependencies
-└── requirements-dev.txt        # Development dependencies
+### Prerequisites
+
+- Python 3.12+
+- Git
+- Redis (optional, in-memory fallback enabled by default)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/HassanKorey/DripsLens.git
+cd DripsLens
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Configure environment variables
+cp .env.example .env
+
+# Apply database schema migrations
+alembic upgrade head
+
+# Start development server
+uvicorn app.main:app --reload --port 8000
 ```
 
 ---
 
-## 📋 Prerequisites
+## 📡 API Reference Overview
 
-Before setting up DripsLens locally, ensure you have the following installed:
+| Endpoint | Method | Description |
+| :--- | :--- | :--- |
+| `/health` | `GET` | Health status probe, database state, uptime, and scheduler telemetry |
+| `/repos` | `GET` | Filtered repository list (`language`, `multiplier`, `skip`, `limit`) |
+| `/repos/{id}/health` | `GET` | Detailed repository health score and verification status |
+| `/issues` | `GET` | Ecosystem issues filtered by `complexity` (`Trivial`, `Medium`, `High`) and `is_claimed` |
+| `/leaderboard` | `GET` | Contributor rankings sorted by points earned and merged pull requests |
+| `/soroban/events` | `GET` | Indexed Soroban smart contract events |
+| `/soroban/contracts/{id}/metrics` | `GET` | Bytecode size, function exports, and health scoring |
+| `/soroban/contracts/{id}/ttl` | `GET` | Live until ledger sequence and remaining active rent days |
+| `/soroban/graph` | `GET` | Cross-contract invocation DAG topology (nodes and edges) |
+| `/soroban/stream/events` | `GET` | Real-time Server-Sent Events (SSE) contract event stream |
 
-- **Python**: `>= 3.10`
-- **Git**: `>= 2.30`
-- **Docker & Docker Compose** *(optional, recommended for full-stack deployment)*
-- **PostgreSQL 15+** & **Redis 7+** *(optional for containerized setup; local testing uses SQLite)*
-
----
-
-## 🚀 Getting Started
-
-You can run DripsLens either via **Docker Compose** (recommended for a full production-like environment) or directly in a **Local Virtual Environment**.
-
-### Option A: Running with Docker Compose (Recommended)
-
-Docker Compose starts the FastAPI application, PostgreSQL database, and Redis cache in synchronized containers:
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/HassanKorey/DripsLens.git
-   cd DripsLens
-   ```
-
-2. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Build and start services:**
-   ```bash
-   docker-compose up -d --build
-   ```
-
-4. **Verify running containers:**
-   ```bash
-   docker-compose ps
-   ```
-
-5. **Access the application:**
-   - **Interactive API Docs (Swagger UI)**: [https://dripslens.onrender.com/docs](https://dripslens.onrender.com/docs)
-   - **Alternative API Docs (ReDoc)**: [https://dripslens.onrender.com/redoc](https://dripslens.onrender.com/redoc)
-   - **Soroban Event Explorer Dashboard**: [https://dripslens.onrender.com/soroban/explorer](https://dripslens.onrender.com/soroban/explorer)
-
-6. **View logs or stop services:**
-   ```bash
-   # View streaming logs
-   docker-compose logs -f app
-
-   # Stop all services
-   docker-compose down
-   ```
-
----
-
-### Option B: Local Virtual Environment Setup
-
-For local development and testing:
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/HassanKorey/DripsLens.git
-   cd DripsLens
-   ```
-
-2. **Create and activate a virtual environment:**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install --upgrade pip
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
-   ```
-
-4. **Set up your environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-   *(For quick local development without Postgres or Redis, DripsLens automatically supports in-memory SQLite and in-process fallback caching).*
-
-5. **Run database migrations:**
-   ```bash
-   alembic upgrade head
-   ```
-
-6. **Launch the development server:**
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-7. **Open in browser:**
-   - Visit [https://dripslens.onrender.com/docs](https://dripslens.onrender.com/docs) for the interactive Swagger UI.
-   - Visit [https://dripslens.onrender.com/soroban/explorer](https://dripslens.onrender.com/soroban/explorer) for the Event Explorer.
-
----
-
-## ⚙️ Configuration & Environment Variables
-
-DripsLens uses Pydantic Settings to load and validate configurations from environment variables or a `.env` file:
-
-| Variable | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `DATABASE_URL` | `string` | `sqlite:///./dripslens.db` | SQLAlchemy connection string (`postgresql+asyncpg://...` or `sqlite+aiosqlite://...`) |
-| `REDIS_URL` | `string` | `""` | Redis connection URL (`redis://localhost:6379/0`). If empty, uses fail-safe in-process caching |
-| `CACHE_TTL_SECONDS` | `integer` | `300` | Default time-to-live for cached responses in seconds |
-| `SOROBAN_RPC_URL` | `string` | `https://soroban-testnet.stellar.org:443` | JSON-RPC 2.0 endpoint for Soroban network interactions |
-| `STELLAR_HORIZON_URL` | `string` | `https://horizon-testnet.stellar.org` | Stellar Horizon API endpoint for account & asset verifications |
-| `STELLAR_RPC_URL` | `string` | `""` | Optional secondary Soroban RPC URL for smart contract verification |
-| `REFRESH_INTERVAL_HOURS`| `float` | `6.0` | Refresh interval interval for background synchronization tasks |
-| `SCHEDULER_ENABLED` | `boolean` | `true` | Enables or disables background APScheduler indexing jobs |
-| `INITIAL_REFRESH_ON_STARTUP` | `boolean` | `true` | Triggers an immediate indexing cycle upon application startup |
-| `ADMIN_TOKEN` | `string` | `""` | Secret key required to access privileged administrative trigger endpoints |
-| `GITHUB_TOKEN` | `string` | `""` | Optional personal access token for GitHub API integration |
-| `DEBUG` | `boolean` | `false` | Enables verbose debug logging |
-| `APP_NAME` | `string` | `DripsLens` | Service name displayed in OpenAPI documentation |
-| `APP_VERSION` | `string` | `0.1.0` | Semantic version string |
-
----
-
-## 📡 API Reference
-
-Interactive OpenAPI documentation is generated automatically by FastAPI and accessible at:
-- **Swagger UI**: `/docs`
-- **ReDoc**: `/redoc`
-- **OpenAPI Schema**: `/openapi.json`
-
-### Endpoints Overview
-
-| Method | Endpoint | Description | Response Model |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/health` | Uptime check, database connection, and scheduler status | `JSON` |
-| `GET` | `/repos` | List tracked Wave repositories with language & multiplier filters | `List[JSON]` |
-| `GET` | `/repos/{repo_id}/health` | Repository health score breakdown and verification status | `JSON` |
-| `GET` | `/issues` | List open Wave issues filtered by complexity tier and claim state | `List[JSON]` |
-| `GET` | `/leaderboard` | Top contributor rankings by points earned and merged PRs | `List[JSON]` |
-| `GET` | `/soroban/events` | Retrieve indexed Soroban smart contract events | `List[ContractEventSchema]` |
-| `GET` | `/soroban/contracts/{contract_id}/metrics` | Fetch contract execution metrics & WASM size | `JSON` |
-| `GET` | `/soroban/contracts/{contract_id}/ttl` | Retrieve contract Time-To-Live (TTL) & rent expiry | `JSON` |
-| `GET` | `/soroban/contracts/{contract_id}/health` | Retrieve WASM analyzer health score & recommendations | `JSON` |
-| `GET` | `/soroban/graph` | Build cross-contract invocation Directed Acyclic Graph (DAG) | `JSON` |
-| `GET` | `/soroban/stream/events` | Server-Sent Events (SSE) live event broadcast stream | `text/event-stream` |
-| `GET` | `/soroban/explorer` | Interactive HTML dashboard for contract event exploration | `text/html` |
-
----
-
-### API Request & Response Examples
-
-#### 1. Uptime & Telemetry Health Check
-```bash
-curl -X GET "https://dripslens.onrender.com/health" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-{
-  "status": "ok",
-  "app": "DripsLens",
-  "version": "2.0.0",
-  "uptime_seconds": 128.4521,
-  "timestamp": "2026-10-21T16:00:00.123456+00:00",
-  "database": "connected",
-  "scheduler": "running"
-}
-```
-
-#### 2. List Tracked Repositories
-```bash
-curl -X GET "https://dripslens.onrender.com/repos?language=Python&multiplier=2" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-[
-  {
-    "id": 1,
-    "name": "HassanKorey/DripsLens",
-    "language": "Python",
-    "multiplier": 2,
-    "issue_count": 5,
-    "health_score": 98,
-    "is_verified": true
-  }
-]
-```
-
-#### 3. Top Contributor Leaderboard
-```bash
-curl -X GET "https://dripslens.onrender.com/leaderboard?limit=5" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-[
-  {
-    "id": 1,
-    "github_username": "HassanKorey",
-    "merged_prs": 18,
-    "points_earned": 2700
-  },
-  {
-    "id": 2,
-    "github_username": "HirthikBalaji",
-    "merged_prs": 4,
-    "points_earned": 600
-  }
-]
-```
-
-#### 4. Fetch Indexed Soroban Events
-```bash
-curl -X GET "https://dripslens.onrender.com/soroban/events" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-[
-  {
-    "id": "evt_1",
-    "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW",
-    "topic": "transfer",
-    "data": {
-      "amount": 100,
-      "from": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
-      "to": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN"
-    },
-    "ledger_sequence": 12345
-  }
-]
-```
-
-#### 2. Get Contract Health & WASM Analysis
-```bash
-curl -X GET "https://dripslens.onrender.com/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/health" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-{
-  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW",
-  "health_score": 95,
-  "exported_functions": 5
-}
-```
-
-#### 3. Get Contract TTL & State Expiration
-```bash
-curl -X GET "https://dripslens.onrender.com/soroban/contracts/CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW/ttl" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-{
-  "contract_id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW",
-  "liveUntilLedgerSeq": 999999,
-  "remaining_days": 30
-}
-```
-
-#### 4. Cross-Contract Invocation Topology Graph
-```bash
-curl -X GET "https://dripslens.onrender.com/soroban/graph" \
-  -H "Accept: application/json"
-```
-
-**Response (`200 OK`):**
-```json
-{
-  "nodes": [
-    { "id": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW" },
-    { "id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" }
-  ],
-  "edges": [
-    {
-      "source": "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5CW",
-      "target": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-      "call_count": 14
-    }
-  ]
-}
-```
-
-#### 5. Stream Real-Time Events (Server-Sent Events)
-```bash
-curl -N -H "Accept: text/event-stream" "https://dripslens.onrender.com/soroban/stream/events"
-```
-
-**Stream Output:**
-```text
-data: {"id": "evt_stream", "topic": "ping"}
-
-data: {"id": "evt_stream", "topic": "ping"}
-```
+Visit the interactive Swagger docs at [`https://dripslens.onrender.com/docs`](https://dripslens.onrender.com/docs) or the [API Reference Guide](https://HassanKorey.github.io/DripsLens/api-reference/).
 
 ---
 
 ## 🧪 Testing & Code Quality
 
-DripsLens enforces strict code formatting, typing rules, and a minimum **80% test coverage threshold** enforced in CI.
-
-### Running the Test Suite
-Tests execute against an isolated in-memory asynchronous SQLite engine with pre-seeded fixtures:
+DripsLens enforces strict code formatting, typing rules, and a minimum **80% test coverage threshold** verified in CI.
 
 ```bash
-# Run all tests
-pytest
-
-# Run tests with coverage report and fail-under threshold
+# Run complete test suite with coverage
 pytest --cov=app --cov-fail-under=80
 
-# Run specific test suite
-pytest tests/test_soroban_endpoints.py -v
-```
-
-### Static Analysis & Type Checking
-
-```bash
 # Fast linting and import sorting with Ruff
 ruff check .
 
@@ -522,52 +201,31 @@ ruff format --check .
 mypy app
 ```
 
-### Continuous Integration (CI)
-Our GitHub Actions pipeline (`.github/workflows/ci.yml`) runs on every push and pull request to the `main` branch, executing:
-1. `ruff check .`
-2. `mypy app`
-3. `pytest --cov=app --cov-fail-under=80`
+---
+
+## 👥 Maintainers & Governance
+
+| Name | Role | GitHub | Contact |
+| :--- | :--- | :--- | :--- |
+| Hassan Akorede (EDUN) | Lead Architect | [@HassanKorey](https://github.com/HassanKorey) | Telegram: `@HassanKorey` |
+| Co-Maintainer | Data Pipeline Reviewer | [@CoMaintainer](https://github.com/CoMaintainer) | Discord: `comaintainer#0001` |
+
+For triage procedures, approval thresholds, and security disclosure policies, consult [MAINTAINERS.md](MAINTAINERS.md) and [SECURITY.md](SECURITY.md).
 
 ---
 
-## 🏛 Governance & Maintainers
+## 🤝 Contributors
 
-DripsLens operates under an active multi-maintainer model with established review workflows, SLAs, and domain ownership:
+Thank you to all the contributors making the Drips Wave ecosystem verifiable and observable!
 
-- **Project Lead**: Hassan Akorede EDUN ([@HassanKorey](https://github.com/HassanKorey))
-- **Co-Maintainers**: Hirthik Balaji ([@HirthikBalaji](https://github.com/HirthikBalaji)), Lang ([@1412346915-lang](https://github.com/1412346915-lang))
+<div align="center">
 
-For complete details on domain review routing, approval thresholds, and triage SLAs, consult [MAINTAINERS.md](MAINTAINERS.md).
+[![Contributors](https://contrib.rocks/preview?repo=HassanKorey/DripsLens)](https://github.com/HassanKorey/DripsLens/graphs/contributors)
 
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! To contribute:
-
-1. Fork the repository and create your feature branch from `main`:
-   ```bash
-   git checkout -b feat/stellar-event-filter
-   ```
-2. Adhere to the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
-   - `feat: add filter by contract event topic`
-   - `fix(indexer): handle soroban RPC rate limiting`
-   - `docs: update API reference examples`
-   - `test: add coverage for TTL edge cases`
-3. Ensure all tests pass with code coverage >= 90%:
-   ```bash
-   pytest tests/ -v --cov=app --cov-fail-under=90
-   ```
-4. Ensure linting and typing checks pass:
-   ```bash
-   ruff check . && mypy app
-   ```
-5. Submit a pull request detailing your changes.
-
-Please review our [CONTRIBUTING.md](CONTRIBUTING.md), [MAINTAINERS.md](MAINTAINERS.md), and [SECURITY.md](SECURITY.md) for full guidelines.
+</div>
 
 ---
 
 ## 📄 License
 
-This project is open-source and distributed under the terms of the **MIT License**. See the [LICENSE](LICENSE) file for more information.
+This project is licensed under the terms of the **MIT License**. See the [LICENSE](LICENSE) file for details.
