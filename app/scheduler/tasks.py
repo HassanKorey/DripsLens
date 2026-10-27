@@ -18,6 +18,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError, OperationalError
 
+from app.cache.redis_client import invalidate_cache
 from app.db.database import AsyncSessionLocal
 from app.models.repo import Repo
 from app.services.github_fetcher import fetch_issues_for_repo
@@ -96,6 +97,7 @@ async def sync_wave_repositories() -> None:
             except Exception as e:
                 logger.warning("Transient error updating repo signals for %s: %s", repo.name, e)
         await session.commit()
+        invalidate_cache()
 
     await execute_with_db_reconnect(_sync_logic)
 

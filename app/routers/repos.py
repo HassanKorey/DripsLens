@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.cache.redis_client import cache_response
 from app.db.database import get_db
 from app.models.repo import Repo
 
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/repos", tags=["Repositories"])
 
 @router.get("")
 @router.get("/")
+@cache_response(ttl_seconds=300)
 async def list_repos(
     language: str | None = None,
     multiplier: int | None = None,
@@ -47,6 +49,7 @@ async def list_repos(
 
 
 @router.get("/{repo_id}/health")
+@cache_response(ttl_seconds=300)
 async def get_repo_health(
     repo_id: int,
     db: AsyncSession = Depends(get_db),
