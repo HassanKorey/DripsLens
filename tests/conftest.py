@@ -17,6 +17,7 @@ import pytest_asyncio
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
 
+from app.cache.redis_client import invalidate_cache
 from app.db.database import AsyncSessionLocal, Base, engine, get_db
 from app.main import app
 from app.models.contributor import Contributor
@@ -28,9 +29,11 @@ from app.models.soroban import ContractEvent, SorobanContract, StorageMetric
 @pytest_asyncio.fixture(autouse=True)
 async def setup_db():
     """Create fresh schema before each test and drop after."""
+    invalidate_cache()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
+    invalidate_cache()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
