@@ -11,7 +11,9 @@ from app.services.github_fetcher import (
     GitHubRateLimited,
 )
 from app.services.stellar_verifier import (
+    StellarHorizonRateLimitError,
     StellarVerifier,
+    parse_retry_after_header,
 )
 
 
@@ -237,3 +239,54 @@ async def test_execute_with_db_reconnect_recovers():
         result = await execute_with_db_reconnect(flaky_task, max_retries=3, retry_delay=0.01)
         assert result == "success"
         assert call_count == 2
+
+
+def test_parse_retry_after_header_bounds():
+    """Retry-After header parsing clamps values to the [1.0, 10.0] second range."""
+    assert parse_retry_after_header(None) is None
+    assert parse_retry_after_header("") is None
+    assert parse_retry_after_header("invalid") is None
+    assert parse_retry_after_header("0.2") == 1.0
+    assert parse_retry_after_header("-5") == 1.0
+    assert parse_retry_after_header("4.5") == 4.5
+    assert parse_retry_after_header("60") == 10.0
+
+
+@pytest.mark.asyncio
+async def test_retry_after_delay_clamped_and_respected():
+    """Verify HTTP 429 Retry-After header is extracted and clamped to [1s, 10s] during tenacity wait."""
+    verifier = StellarVerifier(horizon_url="https://horizon-testnet.stellar.org", max_retries=3)
+    resp_429_high = httpx.Response(
+        status_code=429,
+        headers={"Retry-After": "45"},
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/fee_stats"),
+    )
+    resp_200 = httpx.Response(
+        status_code=200,
+        json={"fee_charged": {"mode": "100"}},
+        request=httpx.Request("GET", "https://horizon-testnet.stellar.org/fee_stats"),
+    )
+
+    sleep_delays: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        sleep_delays.append(delay)
+
+    with (
+        patch("httpx.AsyncClient.get", new_callable=AsyncMock) as mock_get,
+        patch("asyncio.sleep", side_effect=record_sleep),
+    ):
+        mock_get.side_effect = [resp_429_high, resp_200]
+        data = await verifier.query_horizon_rpc("fee_stats")
+        assert data == {"fee_charged": {"mode": "100"}}
+        assert sleep_delays == [10.0]
+
+
+@pytest.mark.asyncio
+async def test_resilient_job_wrapper_catches_rate_limit_errors():
+    """Ensure scheduler job wrapper catches StellarHorizonRateLimitError without crashing."""
+
+    async def rate_limited_job() -> None:
+        raise StellarHorizonRateLimitError("Horizon 429 rate limit exceeded", retry_after=5.0)
+
+    await resilient_job_wrapper(rate_limited_job)
