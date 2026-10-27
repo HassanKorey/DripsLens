@@ -5,22 +5,18 @@ malformed JSON payloads, and persistent 429/503 cascades with tenacity backoff.
 Closes #40.
 """
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
-from tenacity import RetryError
-
 from app.services.github_fetcher import (
     GitHubClient,
     GitHubRateLimited,
 )
 from app.services.stellar_verifier import (
-    StellarHorizonRateLimitError,
     StellarVerifier,
-    parse_retry_after_header,
 )
+from tenacity import RetryError
 
 
 @pytest.fixture
@@ -55,7 +51,6 @@ async def test_github_connection_timeout_and_dropout_recovery(offline_github_cli
     ]
 
     with patch.object(httpx.AsyncClient, "send", AsyncMock(side_effect=mock_responses)):
-        # Request should transparently recover after backoff retry attempts
         data = await offline_github_client.get("/repos/HassanKorey/DripsLens")
         assert isinstance(data, list)
         assert data[0]["name"] == "drips-mock-repo"
@@ -94,9 +89,11 @@ async def test_github_malformed_json_handling(offline_github_client):
     )
     bad_json_response.json.side_effect = ValueError("Expecting value: line 1 column 1 (char 0)")
 
-    with patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=bad_json_response)):
-        with pytest.raises(ValueError, match="Expecting value"):
-            await offline_github_client.get("/orgs/drips/repos")
+    with (
+        patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=bad_json_response)),
+        pytest.raises(ValueError, match="Expecting value"),
+    ):
+        await offline_github_client.get("/orgs/drips/repos")
 
 
 @pytest.mark.asyncio
@@ -105,9 +102,11 @@ async def test_stellar_malformed_horizon_response(offline_stellar_verifier):
     corrupted_resp = MagicMock(status_code=200)
     corrupted_resp.json.side_effect = ValueError("Invalid JSON token")
 
-    with patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=corrupted_resp)):
-        with pytest.raises(ValueError):
-            await offline_stellar_verifier.get_account("GANYTEST")
+    with (
+        patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=corrupted_resp)),
+        pytest.raises(ValueError),
+    ):
+        await offline_stellar_verifier.get_account("GANYTEST")
 
 
 # ==============================================================================
@@ -164,6 +163,8 @@ async def test_persistent_503_service_unavailable_cascade(offline_github_client)
         text="Service Unavailable - Maintenance in progress",
     )
 
-    with patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=unavailable_resp)):
-        with pytest.raises((GitHubRateLimited, RetryError, httpx.HTTPStatusError)):
-            await offline_github_client.get("/rate_limit")
+    with (
+        patch.object(httpx.AsyncClient, "send", AsyncMock(return_value=unavailable_resp)),
+        pytest.raises((GitHubRateLimited, RetryError, httpx.HTTPStatusError)),
+    ):
+        await offline_github_client.get("/rate_limit")
