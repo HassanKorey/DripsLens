@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     # --- Refresh engine ---
     refresh_interval_hours: float = 6.0
     admin_token: str = ""  # empty -> /admin/refresh is open; set a secret to require X-Admin-Token
+    webhook_secret: str = "dripslens-webhook-secret"
 
     # --- GitHub ---
     github_token: str = ""
