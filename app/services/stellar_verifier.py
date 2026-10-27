@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 from tenacity import (
     AsyncRetrying,
+    RetryCallState,
     RetryError,
     retry_if_exception_type,
     stop_after_attempt,
@@ -22,6 +23,25 @@ logger = logging.getLogger(__name__)
 
 STELLAR_HORIZON_URL = os.getenv("STELLAR_HORIZON_URL", "https://horizon-testnet.stellar.org")
 SOROBAN_RPC_URL = os.getenv("SOROBAN_RPC_URL", "https://soroban-testnet.stellar.org:443")
+MIN_RETRY_DELAY_SECONDS = 1.0
+MAX_RETRY_DELAY_SECONDS = 10.0
+
+
+def parse_retry_after_header(
+    raw_value: str | None,
+    min_delay: float = MIN_RETRY_DELAY_SECONDS,
+    max_delay: float = MAX_RETRY_DELAY_SECONDS,
+) -> float | None:
+    """Parse a Retry-After header value and clamp it to [min_delay, max_delay] seconds."""
+    if not raw_value:
+        return None
+    try:
+        parsed = float(raw_value.strip())
+    except (TypeError, ValueError):
+        return None
+    if parsed < 0:
+        return min_delay
+    return max(min_delay, min(max_delay, parsed))
 
 
 class StellarHorizonRateLimitError(Exception):
@@ -36,6 +56,25 @@ class StellarHorizonServiceUnavailableError(Exception):
     """Raised when Stellar Horizon responds with HTTP 503."""
 
     pass
+
+
+_default_exp_wait = wait_exponential(
+    multiplier=1,
+    min=MIN_RETRY_DELAY_SECONDS,
+    max=MAX_RETRY_DELAY_SECONDS,
+)
+
+
+def wait_retry_after_or_exponential(retry_state: RetryCallState) -> float:
+    """Respect clamped Retry-After delay on HTTP 429, or fall back to exponential backoff (1s..10s)."""
+    if retry_state.outcome and retry_state.outcome.failed:
+        exc = retry_state.outcome.exception()
+        if isinstance(exc, StellarHorizonRateLimitError) and exc.retry_after is not None:
+            return max(
+                MIN_RETRY_DELAY_SECONDS,
+                min(MAX_RETRY_DELAY_SECONDS, float(exc.retry_after)),
+            )
+    return float(_default_exp_wait(retry_state))
 
 
 class StellarVerifier:
@@ -56,7 +95,7 @@ class StellarVerifier:
         url = endpoint if endpoint.startswith("http") else f"{self.horizon_url}/{endpoint.lstrip('/')}"
         retryer = AsyncRetrying(
             stop=stop_after_attempt(self.max_retries),
-            wait=wait_exponential(multiplier=1, min=1, max=10),
+            wait=wait_retry_after_or_exponential,
             retry=retry_if_exception_type(
                 (
                     httpx.ConnectError,
@@ -76,7 +115,7 @@ class StellarVerifier:
 
                     if response.status_code == 429:
                         retry_after_str = response.headers.get("Retry-After")
-                        retry_after = float(retry_after_str) if retry_after_str and retry_after_str.isdigit() else None
+                        retry_after = parse_retry_after_header(retry_after_str)
                         logger.warning(
                             "Stellar Horizon rate limited (429) for %s, retry-after=%s",
                             url,
