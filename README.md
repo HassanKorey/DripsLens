@@ -208,7 +208,7 @@ mypy app
 | Name | Role | GitHub | Contact |
 | :--- | :--- | :--- | :--- |
 | Hassan Akorede (EDUN) | Lead Architect | [@HassanKorey](https://github.com/HassanKorey) | Telegram: `@HassanKorey` |
-| Co-Maintainer | Data Pipeline Reviewer | [@CoMaintainer](https://github.com/CoMaintainer) | Discord: `comaintainer#0001` |
+| Co-Maintainer | Data Pipeline Reviewer | [@Otimileyin](https://github.com/Otimileyin) | Discord: `@Tim` |
 
 For triage procedures, approval thresholds, and security disclosure policies, consult [MAINTAINERS.md](MAINTAINERS.md) and [SECURITY.md](SECURITY.md).
 
