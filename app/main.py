@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.routers import analytics, contributors, health, issues, repos, soroban, stream
+from app.routers import analytics, contributors, export, health, issues, repos, soroban, stream
 from app.scheduler.tasks import start_scheduler
 
 
@@ -42,6 +42,7 @@ app.include_router(health.router)
 app.include_router(repos.router)
 app.include_router(issues.router)
 app.include_router(contributors.router)
+app.include_router(export.router)
 
 # Soroban Smart Contract & Stellar Analytics Routers
 app.include_router(soroban.router)
