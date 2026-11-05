@@ -9,6 +9,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from tenacity import RetryError
+
 from app.services.github_fetcher import (
     GitHubClient,
     GitHubRateLimited,
@@ -16,7 +18,6 @@ from app.services.github_fetcher import (
 from app.services.stellar_verifier import (
     StellarVerifier,
 )
-from tenacity import RetryError
 
 
 @pytest.fixture
