@@ -55,7 +55,7 @@ def test_cmd_repos(mock_get, capsys):
         }
     ]
     mock_resp.raise_for_status.return_value = None
-    mock_get.return_value.__enter__.return_value = mock_resp
+    mock_get.return_value = mock_resp
 
     cli = DripsLensCLI(base_url="http://test")
     parser = build_parser()
@@ -82,7 +82,7 @@ def test_cmd_issues_json(mock_get, capsys):
         }
     ]
     mock_resp.raise_for_status.return_value = None
-    mock_get.return_value.__enter__.return_value = mock_resp
+    mock_get.return_value = mock_resp
 
     cli = DripsLensCLI(base_url="http://test")
     parser = build_parser()
@@ -105,7 +105,7 @@ def test_cmd_leaderboard(mock_get, capsys):
         }
     ]
     mock_resp.raise_for_status.return_value = None
-    mock_get.return_value.__enter__.return_value = mock_resp
+    mock_get.return_value = mock_resp
 
     cli = DripsLensCLI(base_url="http://test")
     parser = build_parser()
@@ -139,7 +139,7 @@ def test_cmd_search(mock_get, capsys):
         },
     ]
     mock_resp.raise_for_status.return_value = None
-    mock_get.return_value.__enter__.return_value = mock_resp
+    mock_get.return_value = mock_resp
 
     cli = DripsLensCLI(base_url="http://test")
     parser = build_parser()
