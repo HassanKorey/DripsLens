@@ -41,7 +41,7 @@ def offline_stellar_verifier():
 async def test_github_connection_timeout_and_dropout_recovery(offline_github_client):
     """Test resilience when network drops connection or times out intermittently before succeeding."""
     mock_responses = [
-        httpx.ConnectTimeout("Connection dropped to api.github.com"),
+        httpx.ConnectError("Connection dropped to api.github.com"),
         httpx.ReadTimeout("Read timeout waiting for response payload"),
         MagicMock(
             status_code=200,
