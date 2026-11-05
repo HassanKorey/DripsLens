@@ -46,8 +46,8 @@ async def get_contributor_impact(
 
     # Calculate individual impact metrics
     impact_data = calculate_impact_score(
-        merged_prs=contributor.merged_prs,
-        points_earned=contributor.points_earned,
+        merged_prs=int(contributor.merged_prs or 0),
+        points_earned=int(contributor.points_earned or 0),
         review_count=review_count,
         repo_multiplier=avg_multiplier,
     )
@@ -59,8 +59,8 @@ async def get_contributor_impact(
 
     population_scores = [
         calculate_impact_score(
-            merged_prs=c.merged_prs,
-            points_earned=c.points_earned,
+            merged_prs=int(c.merged_prs or 0),
+            points_earned=int(c.points_earned or 0),
             review_count=0,
             repo_multiplier=avg_multiplier,
         )["impact_score"]
