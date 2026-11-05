@@ -1,9 +1,6 @@
 """Unit tests for standalone DripsLens CLI client."""
 
-import argparse
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from app.cli import DripsLensCLI, build_parser, format_table
 
