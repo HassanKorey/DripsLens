@@ -290,3 +290,103 @@ async def test_resilient_job_wrapper_catches_rate_limit_errors():
         raise StellarHorizonRateLimitError("Horizon 429 rate limit exceeded", retry_after=5.0)
 
     await resilient_job_wrapper(rate_limited_job)
+
+
+@pytest.mark.asyncio
+async def test_github_graphql_batch_fetcher_parses_complexity_and_points():
+    """Verify batch GraphQL issue fetcher consolidates multi-repo queries and assigns points."""
+    client = GitHubClient(token="fake_token")
+    graphql_payload = {
+        "data": {
+            "rateLimit": {"cost": 1, "remaining": 4950, "resetAt": "2026-11-07T08:00:00Z"},
+            "repo_0": {
+                "nameWithOwner": "HassanKorey/DripsLens",
+                "issues": {
+                    "nodes": [
+                        {
+                            "databaseId": 101,
+                            "number": 31,
+                            "title": "Enrich OpenAPI docs",
+                            "url": "https://github.com/HassanKorey/DripsLens/issues/31",
+                            "state": "OPEN",
+                            "labels": {"nodes": [{"name": "complexity: trivial"}]},
+                            "assignees": {"totalCount": 0, "nodes": []},
+                            "closedByPullRequestsReferences": {"totalCount": 0},
+                        },
+                        {
+                            "databaseId": 102,
+                            "number": 35,
+                            "title": "Build GraphQL batch fetcher",
+                            "url": "https://github.com/HassanKorey/DripsLens/issues/35",
+                            "state": "OPEN",
+                            "labels": {"nodes": [{"name": "complexity: medium"}]},
+                            "assignees": {"totalCount": 1, "nodes": [{"login": "dev"}]},
+                            "closedByPullRequestsReferences": {"totalCount": 1},
+                        },
+                    ]
+                },
+            },
+            "repo_1": {
+                "nameWithOwner": "stellar/soroban-example-dapp",
+                "issues": {
+                    "nodes": [
+                        {
+                            "databaseId": 201,
+                            "number": 8,
+                            "title": "Cross-contract graph engine",
+                            "url": "https://github.com/stellar/soroban-example-dapp/issues/8",
+                            "state": "OPEN",
+                            "labels": {"nodes": [{"name": "complexity: high"}]},
+                            "assignees": {"totalCount": 0, "nodes": []},
+                            "closedByPullRequestsReferences": {"totalCount": 0},
+                        }
+                    ]
+                },
+            },
+        }
+    }
+    fake_resp = httpx.Response(
+        status_code=200,
+        headers={"X-RateLimit-Remaining": "4950"},
+        json=graphql_payload,
+        request=httpx.Request("POST", "https://api.github.com/graphql"),
+    )
+
+    with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+        mock_post.return_value = fake_resp
+        batch = await client.fetch_issues_batch_graphql(
+            ["HassanKorey/DripsLens", "stellar/soroban-example-dapp"]
+        )
+        assert mock_post.call_count == 1
+        assert len(batch["HassanKorey/DripsLens"]) == 2
+        assert batch["HassanKorey/DripsLens"][0]["complexity"] == "Trivial"
+        assert batch["HassanKorey/DripsLens"][0]["points"] == 100
+        assert batch["HassanKorey/DripsLens"][0]["is_claimed"] is False
+        assert batch["HassanKorey/DripsLens"][1]["complexity"] == "Medium"
+        assert batch["HassanKorey/DripsLens"][1]["points"] == 150
+        assert batch["HassanKorey/DripsLens"][1]["is_claimed"] is True
+        assert batch["stellar/soroban-example-dapp"][0]["complexity"] == "High"
+        assert batch["stellar/soroban-example-dapp"][0]["points"] == 200
+
+
+@pytest.mark.asyncio
+async def test_github_graphql_batch_fetcher_falls_back_to_rest_on_low_quota():
+    """Verify GraphQL fetcher falls back to REST fetch_open_issues when quota is depleted."""
+    client = GitHubClient(token="fake_token")
+    low_quota_resp = httpx.Response(
+        status_code=429,
+        headers={"X-RateLimit-Remaining": "0"},
+        json={"message": "API rate limit exceeded"},
+        request=httpx.Request("POST", "https://api.github.com/graphql"),
+    )
+
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch.object(client, "fetch_open_issues", new_callable=AsyncMock) as mock_rest,
+    ):
+        mock_post.return_value = low_quota_resp
+        mock_rest.return_value = [{"id": 1, "number": 1, "title": "REST Fallback", "complexity": "Trivial", "points": 100}]
+        result = await client.fetch_issues_batch_graphql(["HassanKorey/DripsLens"])
+        assert mock_rest.call_count == 1
+        assert result["HassanKorey/DripsLens"][0]["title"] == "REST Fallback"
+

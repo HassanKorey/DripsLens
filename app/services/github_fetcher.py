@@ -183,6 +183,154 @@ class GitHubClient:
             logger.warning("Error fetching issues for %s: %s", repo_full_name, e)
             return []
 
+    @staticmethod
+    def _classify_complexity_and_points(label_names: list[str]) -> tuple[str, int]:
+        """Classify issue complexity tier and Wave points from label strings."""
+        for raw_lbl in label_names:
+            lbl = raw_lbl.lower()
+            if "trivial" in lbl or "100" in lbl or "good first issue" in lbl:
+                return ("Trivial", 100)
+            if "high" in lbl or "200" in lbl:
+                return ("High", 200)
+            if "medium" in lbl or "150" in lbl:
+                return ("Medium", 150)
+        return ("Medium", 150)
+
+    @staticmethod
+    def build_batch_issues_graphql_query(repo_full_names: list[str], per_repo: int = 50) -> str:
+        """Build a single consolidated GraphQL query for multiple owner/repo targets."""
+        fragments: list[str] = ["rateLimit { cost remaining resetAt }"]
+        for idx, full_name in enumerate(repo_full_names):
+            if "/" not in full_name:
+                continue
+            owner, name = full_name.split("/", 1)
+            safe_owner = owner.replace('"', "")
+            safe_name = name.replace('"', "")
+            alias = f"repo_{idx}"
+            fragments.append(
+                f'{alias}: repository(owner: "{safe_owner}", name: "{safe_name}") {{\n'
+                f"  nameWithOwner\n"
+                f"  issues(first: {per_repo}, states: [OPEN], orderBy: {{field: UPDATED_AT, direction: DESC}}) {{\n"
+                f"    nodes {{\n"
+                f"      databaseId\n"
+                f"      number\n"
+                f"      title\n"
+                f"      url\n"
+                f"      state\n"
+                f"      labels(first: 20) {{ nodes {{ name }} }}\n"
+                f"      assignees(first: 5) {{ totalCount nodes {{ login }} }}\n"
+                f"      closedByPullRequestsReferences(first: 5) {{ totalCount }}\n"
+                f"    }}\n"
+                f"  }}\n"
+                f"}}"
+            )
+        body = "\n".join(fragments)
+        return f"query BatchWaveIssues {{\n{body}\n}}"
+
+    async def fetch_issues_batch_graphql(
+        self,
+        repo_full_names: list[str],
+        per_repo: int = 50,
+        min_remaining_quota: int = 50,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Batch-fetch open issues, complexity labels, and point values via GitHub GraphQL API.
+
+        Automatically checks GraphQL rate-limit cost/remaining headers and payload fields,
+        falling back to REST `fetch_open_issues` when quotas deplete or GraphQL fails.
+        """
+        valid_repos = [r for r in repo_full_names if "/" in r]
+        if not valid_repos:
+            return {}
+
+        query = self.build_batch_issues_graphql_query(valid_repos, per_repo=per_repo)
+        graphql_url = f"{self.base_url}/graphql"
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    graphql_url,
+                    headers=self._get_headers(),
+                    json={"query": query},
+                )
+
+                header_remaining = response.headers.get("X-RateLimit-Remaining")
+                if response.status_code in (403, 429) or (
+                    header_remaining is not None and header_remaining.isdigit() and int(header_remaining) < min_remaining_quota
+                ):
+                    logger.warning("GraphQL rate limit quota low or exhausted; falling back to REST")
+                    return await self._fallback_batch_rest(valid_repos)
+
+                response.raise_for_status()
+                payload = response.json()
+
+            if not isinstance(payload, dict) or "data" not in payload or payload.get("data") is None:
+                logger.warning("GraphQL response missing data payload; falling back to REST")
+                return await self._fallback_batch_rest(valid_repos)
+
+            data_block: dict[str, Any] = payload["data"]
+            rate_info = data_block.get("rateLimit") or {}
+            remaining_pts = rate_info.get("remaining")
+            if isinstance(remaining_pts, int) and remaining_pts < min_remaining_quota:
+                logger.warning(
+                    "GraphQL rateLimit.remaining (%d) below threshold (%d); falling back to REST",
+                    remaining_pts,
+                    min_remaining_quota,
+                )
+                return await self._fallback_batch_rest(valid_repos)
+
+            results: dict[str, list[dict[str, Any]]] = {}
+            for idx, repo_name in enumerate(valid_repos):
+                alias = f"repo_{idx}"
+                repo_node = data_block.get(alias)
+                if not isinstance(repo_node, dict):
+                    results[repo_name] = await self.fetch_open_issues(repo_name)
+                    continue
+
+                raw_nodes = ((repo_node.get("issues") or {}).get("nodes")) or []
+                parsed_issues: list[dict[str, Any]] = []
+                for node in raw_nodes:
+                    if not isinstance(node, dict):
+                        continue
+                    label_nodes = ((node.get("labels") or {}).get("nodes")) or []
+                    label_names = [
+                        lbl.get("name", "")
+                        for lbl in label_nodes
+                        if isinstance(lbl, dict) and lbl.get("name")
+                    ]
+                    complexity, points = self._classify_complexity_and_points(label_names)
+
+                    assignees_info = node.get("assignees") or {}
+                    assignee_count = int(assignees_info.get("totalCount") or len(assignees_info.get("nodes") or []))
+                    pr_refs = node.get("closedByPullRequestsReferences") or {}
+                    pr_count = int(pr_refs.get("totalCount") or 0)
+
+                    parsed_issues.append(
+                        {
+                            "id": node.get("databaseId"),
+                            "number": node.get("number"),
+                            "title": node.get("title", "Untitled Issue"),
+                            "url": node.get("url", ""),
+                            "state": str(node.get("state", "OPEN")).lower(),
+                            "complexity": complexity,
+                            "points": points,
+                            "is_claimed": bool(assignee_count > 0 or pr_count > 0),
+                            "linked_prs": pr_count,
+                        }
+                    )
+                results[repo_name] = parsed_issues
+            return results
+        except Exception as exc:
+            logger.warning("GraphQL batch fetch failed (%s); falling back to REST", exc)
+            return await self._fallback_batch_rest(valid_repos)
+
+    async def _fallback_batch_rest(self, repo_full_names: list[str]) -> dict[str, list[dict[str, Any]]]:
+        """Fallback helper fetching open issues sequentially via REST when GraphQL is unavailable."""
+        results: dict[str, list[dict[str, Any]]] = {}
+        for repo_name in repo_full_names:
+            results[repo_name] = await self.fetch_open_issues(repo_name)
+        return results
+
+
 
 # Module-level convenience functions
 _default_gh_client = GitHubClient()
