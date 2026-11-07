@@ -1,25 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}DripsLens{% endblock %} — Drips Wave Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-  <header>
-    <a class="brand" href="/">💧 DripsLens</a>
-    <nav>
-      <a href="/">Repos</a>
-      <a href="/docs">API Docs</a>
-      <a href="https://drips.network/wave/stellar/repos">Drips Wave ↗</a>
+<body class="min-h-screen bg-[#0d1117] text-[#e6edf3] antialiased flex flex-col">
+  <header class="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-[#30363d] bg-[#161b22]/95 backdrop-blur">
+    <a class="brand font-bold text-lg tracking-tight text-white hover:text-purple-300 transition-colors" href="/">💧 DripsLens</a>
+    <nav class="flex flex-wrap items-center gap-4 text-sm font-medium" aria-label="Main navigation">
+      <a class="text-[#8b949e] hover:text-white transition-colors" href="/">Repos</a>
+      <a class="text-[#8b949e] hover:text-white transition-colors" href="/soroban/explorer">Soroban Explorer</a>
+      <a class="text-[#8b949e] hover:text-white transition-colors" href="/docs">API Docs</a>
+      <a class="text-purple-400 hover:text-purple-300 transition-colors" href="https://drips.network/wave/stellar/repos" target="_blank" rel="noopener noreferrer">Drips Wave ↗</a>
     </nav>
   </header>
-  <main>
+  <main class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 overflow-x-hidden">
     {% block content %}{% endblock %}
   </main>
-  <footer>
-    <span>DripsLens v{{ version }} — community tooling for the Drips Wave Stellar Program</span>
+  <footer class="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 border-t border-[#30363d] text-[#8b949e] text-xs flex flex-wrap justify-between gap-2">
+    <span>DripsLens v{{ version | default('2.0.0') }} — community tooling for the Drips Wave Stellar Program</span>
+    <span>Accessible &amp; mobile-ready analytics</span>
   </footer>
 </body>
 </html>

@@ -58,6 +58,10 @@ async def test_explorer_page(async_client: AsyncClient):
     response = await async_client.get("/soroban/explorer")
     assert response.status_code == 200
     assert "Soroban Event Explorer" in response.text
+    assert 'id="search-input"' in response.text
+    assert 'id="complexity-filter"' in response.text
+    assert "overflow-x-auto" in response.text
+
 
 
 @pytest.mark.asyncio
