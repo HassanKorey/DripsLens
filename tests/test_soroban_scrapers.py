@@ -20,3 +20,12 @@ async def test_ingest_soroban_events_handles_exception():
         # Should not raise exception
         await ingest_soroban_events()
         mock_get_events.assert_awaited_once_with(0)
+
+
+@pytest.mark.asyncio
+async def test_ingest_soroban_events_custom_start_ledger():
+    with patch("app.soroban.indexer.get_events", new_callable=AsyncMock) as mock_get_events:
+        mock_get_events.return_value = {"events": [{"id": "evt_100", "ledger": 5000}]}
+        result = await ingest_soroban_events(start_ledger=5000)
+        mock_get_events.assert_awaited_once_with(5000)
+        assert result == {"events": [{"id": "evt_100", "ledger": 5000}]}
