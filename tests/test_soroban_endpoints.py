@@ -58,6 +58,10 @@ async def test_explorer_page(async_client: AsyncClient):
     response = await async_client.get("/soroban/explorer")
     assert response.status_code == 200
     assert "Soroban Event Explorer" in response.text
+    assert "Total Indexed Events" in response.text
+    assert "Tracked Contracts" in response.text
+    assert "Average Health Score" in response.text
+    assert "No contract records seeded yet" in response.text
 
 
 @pytest.mark.asyncio
@@ -67,6 +71,8 @@ async def test_stream_event_generator():
         event = await anext(gen)
         assert "data" in event
         assert "evt_stream" in event["data"]
+        assert "ping" in event["data"]
+    await gen.aclose()
 
 
 def test_start_scheduler():

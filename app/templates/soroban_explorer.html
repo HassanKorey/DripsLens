@@ -2,13 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Soroban Event Explorer</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-8">
-    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
-        <h1 class="text-2xl font-bold mb-4">Soroban Event Explorer</h1>
-        <div id="events-container" class="space-y-4"></div>
+<body class="bg-slate-50 text-slate-900 min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Soroban Event Explorer</h1>
+                <p class="text-sm text-slate-500 mt-1">Real-time Soroban smart contract invocations, metrics, and WASM health telemetry</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="sse-status-dot" class="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span id="sse-status-text" class="text-xs font-medium text-slate-600">Live SSE Stream</span>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="Explorer Summary Metrics">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Indexed Events</p>
+                <p id="metric-total-events" class="text-3xl font-bold text-indigo-600 mt-2">{{ total_events | default(0) }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tracked Contracts</p>
+                <p id="metric-tracked-contracts" class="text-3xl font-bold text-slate-900 mt-2">{{ tracked_contracts | default(0) }}</p>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Average Health Score</p>
+                <p id="metric-avg-health" class="text-3xl font-bold text-emerald-600 mt-2">{{ avg_health_score | default(95) }}%</p>
+            </div>
+        </section>
+
+        <!-- Interactive Event Table -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <h2 class="text-base font-semibold text-slate-800">Contract Invocation Feed</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead class="bg-slate-50 text-slate-600 text-left text-xs uppercase tracking-wider">
+                        <tr>
+                            <th class="px-6 py-3">Contract ID</th>
+                            <th class="px-6 py-3">Topic</th>
+                            <th class="px-6 py-3">Ledger Sequence</th>
+                            <th class="px-6 py-3">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-table-body" class="divide-y divide-slate-100">
+                    </tbody>
+                </table>
+            </div>
+            <div id="empty-state" class="p-8 text-center text-sm text-slate-500">
+                No contract records seeded yet. Waiting for live Soroban events...
+            </div>
+            <div id="events-container" class="hidden space-y-2 p-4"></div>
+        </section>
     </div>
     <script src="/static/js/explorer.js"></script>
 </body>
