@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
@@ -28,11 +28,50 @@ async def test_get_contract_metrics(async_client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_contract_ttl(async_client: AsyncClient):
-    response = await async_client.get("/soroban/contracts/CA3D5KRYM6/ttl")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["contract_id"] == "CA3D5KRYM6"
-    assert data["remaining_days"] == 30
+    with patch("app.routers.soroban.get_ledger_entries", new_callable=AsyncMock) as mock_entries:
+        mock_entries.return_value = None
+        response = await async_client.get("/soroban/contracts/CA3D5KRYM6/ttl")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["contract_id"] == "CA3D5KRYM6"
+        assert data["remaining_days"] == 30
+        assert data["is_near_expiry"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_contract_ttl_healthy_boundary(async_client: AsyncClient):
+    # 345,600 ledgers * 5s = 1,728,000s = 20 days remaining
+    with patch("app.routers.soroban.get_ledger_entries", new_callable=AsyncMock) as mock_entries:
+        mock_entries.return_value = {
+            "latestLedger": 100000,
+            "entries": [{"key": "CA3D5KRYM6", "liveUntilLedgerSeq": 445600}],
+        }
+        response = await async_client.get("/soroban/contracts/CA3D5KRYM6/ttl")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["contract_id"] == "CA3D5KRYM6"
+        assert data["liveUntilLedgerSeq"] == 445600
+        assert data["remaining_ledgers"] == 345600
+        assert data["remaining_days"] == 20
+        assert data["is_near_expiry"] is False
+
+
+@pytest.mark.asyncio
+async def test_get_contract_ttl_near_expiry_boundary(async_client: AsyncClient):
+    # 34,560 ledgers * 5s = 172,800s = 2 days remaining (< 7 days threshold)
+    with patch("app.routers.soroban.get_ledger_entries", new_callable=AsyncMock) as mock_entries:
+        mock_entries.return_value = {
+            "latestLedger": 500000,
+            "entries": [{"key": "CNEAREXPIRY", "liveUntilLedgerSeq": 534560}],
+        }
+        response = await async_client.get("/soroban/contracts/CNEAREXPIRY/ttl")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["contract_id"] == "CNEAREXPIRY"
+        assert data["liveUntilLedgerSeq"] == 534560
+        assert data["remaining_ledgers"] == 34560
+        assert data["remaining_days"] == 2
+        assert data["is_near_expiry"] is True
 
 
 @pytest.mark.asyncio

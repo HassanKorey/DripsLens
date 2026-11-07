@@ -16,3 +16,11 @@ class ContractEventSchema(BaseModel):
     topic: str = Field(description="Event topic")
     data: dict[str, Any] = Field(description="Event payload")
     ledger_sequence: int = Field(description="Ledger sequence")
+
+
+class ContractTTLSchema(BaseModel):
+    contract_id: str = Field(description="Soroban contract ID")
+    liveUntilLedgerSeq: int = Field(description="Ledger sequence at which the contract entry expires")
+    remaining_ledgers: int = Field(default=518400, description="Remaining ledgers before expiration")
+    remaining_days: int = Field(description="Estimated days until expiration (~5s per ledger)")
+    is_near_expiry: bool = Field(default=False, description="True if fewer than 7 days remain")
