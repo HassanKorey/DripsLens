@@ -64,3 +64,49 @@ async def test_get_ledger_entries():
         result = await get_ledger_entries(["key1", "key2"])
         assert result == {"entries": []}
         mock_rpc.assert_awaited_once_with("getLedgerEntries", {"keys": ["key1", "key2"]})
+
+
+@pytest.mark.asyncio
+async def test_rpc_request_retries_on_503_and_succeeds():
+    request = httpx.Request("POST", "https://soroban-testnet.stellar.org:443")
+    unavailable_response = httpx.Response(status_code=503, text="Service Unavailable", request=request)
+    rate_limit_response = httpx.Response(status_code=429, text="Too Many Requests", request=request)
+    ok_response = httpx.Response(
+        status_code=200,
+        json={"jsonrpc": "2.0", "id": 1, "result": {"status": "healthy"}},
+        request=request,
+    )
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_post.side_effect = [unavailable_response, rate_limit_response, ok_response]
+        result = await rpc_request("getHealth")
+        assert result == {"status": "healthy"}
+        assert mock_post.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_rpc_request_exhausts_retries_on_503_and_raises_soroban_exception():
+    request = httpx.Request("POST", "https://soroban-testnet.stellar.org:443")
+    unavailable_response = httpx.Response(status_code=503, text="Service Unavailable", request=request)
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_post.return_value = unavailable_response
+        with pytest.raises(SorobanRPCException, match="failed after 3 attempts"):
+            await rpc_request("getHealth")
+        assert mock_post.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_rpc_request_retries_on_connect_timeout_and_raises_soroban_exception():
+    with (
+        patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        mock_post.side_effect = httpx.ConnectTimeout("Connection timed out")
+        with pytest.raises(SorobanRPCException, match="failed after 3 attempts"):
+            await rpc_request("getEvents", {"startLedger": 100})
+        assert mock_post.await_count == 3
