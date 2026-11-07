@@ -10,6 +10,7 @@ from app.db.database import get_db
 from app.models.contributor import Contributor
 from app.models.repo import Repo
 from app.services.impact_scorer import calculate_impact_score, calculate_percentile_rank
+from app.soroban.graph import build_invocation_graph
 
 router = APIRouter(tags=["Analytics"])
 
@@ -17,7 +18,10 @@ router = APIRouter(tags=["Analytics"])
 @router.get("/soroban/graph")
 async def get_graph() -> dict[str, list[dict[str, Any]]]:
     """Return contract dependency invocation graph for Soroban analytics."""
-    return {"nodes": [{"id": "C1"}], "edges": []}
+    sample_events = [
+        {"contract_id": "C1", "target_contract_id": "C2", "topic": "call"},
+    ]
+    return build_invocation_graph(sample_events)
 
 
 @router.get("/analytics/contributors/{username}/impact")
