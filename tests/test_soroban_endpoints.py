@@ -61,6 +61,17 @@ async def test_explorer_page(async_client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_dashboard_charts_page(async_client: AsyncClient, seed_drips_data):
+    response = await async_client.get("/dashboard")
+    assert response.status_code == 200
+    assert "DripsLens Ecosystem Dashboard" in response.text
+    assert "pointsDistributionChart" in response.text
+    assert "contributorGrowthChart" in response.text
+    assert "<noscript>" in response.text
+
+
+
+@pytest.mark.asyncio
 async def test_stream_event_generator():
     gen = event_generator()
     with patch("asyncio.sleep", return_value=None):

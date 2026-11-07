@@ -1,49 +1,174 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        h1 { color: #333; }
-        .section { margin-bottom: 20px; }
-    </style>
+    <title>{{ title | default('DripsLens Ecosystem Dashboard') }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 </head>
-<body>
-    <h1>{{ title }}</h1>
-    <div class="section">
-        <h2>Repositories</h2>
-        <p>Explore Drips Wave approved repos.</p>
-        <table border="1" cellpadding="5" cellspacing="0" width="100%">
-            <thead><tr><th>Name</th><th>Language</th><th>Multiplier</th><th>Health Score</th></tr></thead>
-            <tbody>
-                {% for repo in repos %}
-                <tr><td>{{ repo.name }}</td><td>{{ repo.language }}</td><td>{{ repo.multiplier }}x</td><td>{{ repo.health_score }}</td></tr>
-                {% else %}
-                <tr><td colspan="4">No repositories loaded yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<body class="bg-[#0d1117] text-[#e6edf3] min-h-screen font-sans antialiased p-4 sm:p-8">
+    <div class="max-w-6xl mx-auto space-y-8">
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#30363d] pb-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white">{{ title | default('DripsLens Ecosystem Dashboard') }}</h1>
+                <p class="text-sm text-[#8b949e] mt-1">Interactive contributor growth, complexity points distribution, and repository health telemetry.</p>
+            </div>
+            <nav class="flex items-center gap-4 text-sm">
+                <a href="/" class="text-purple-400 hover:underline">Explorer</a>
+                <a href="/docs" class="text-purple-400 hover:underline">OpenAPI Docs</a>
+                <a href="/contributors/top" class="text-purple-400 hover:underline">Leaderboard JSON</a>
+            </nav>
+        </header>
+
+        <!-- Summary Metric Cards -->
+        <section aria-label="Ecosystem summary metrics" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
+                <span class="text-xs uppercase tracking-wider text-[#8b949e]">Active Wave Repositories</span>
+                <div id="metric-active-repos" class="text-3xl font-bold text-white mt-1">{{ repos | length }}</div>
+            </div>
+            <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
+                <span class="text-xs uppercase tracking-wider text-[#8b949e]">Tracked Wave Issues</span>
+                <div id="metric-total-issues" class="text-3xl font-bold text-purple-400 mt-1">{{ issues | length }}</div>
+            </div>
+            <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
+                <span class="text-xs uppercase tracking-wider text-[#8b949e]">Ranked Contributors</span>
+                <div id="metric-total-contributors" class="text-3xl font-bold text-emerald-400 mt-1">{{ contributors | default([]) | length }}</div>
+            </div>
+        </section>
+
+        <!-- Interactive Charts Section (with SVG & Tabular Noscript Fallback) -->
+        <section aria-label="Interactive ecosystem charts" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
+                <h2 class="text-lg font-semibold text-white mb-1">Points Distribution by Complexity Tier</h2>
+                <p class="text-xs text-[#8b949e] mb-4">Histogram of open and claimed issues across Trivial (100 pts), Medium (150 pts), and High (200 pts) tiers.</p>
+                <div class="relative h-64 w-full">
+                    <canvas id="pointsDistributionChart" aria-label="Points distribution histogram" role="img"></canvas>
+                </div>
+                <!-- Inline SVG static preview & Noscript fallback -->
+                <noscript>
+                    <table class="w-full text-sm mt-4 border border-[#30363d]">
+                        <thead>
+                            <tr class="bg-[#1c2129]"><th class="p-2 text-left">Complexity Tier</th><th class="p-2 text-left">Base Points</th><th class="p-2 text-left">Issue Count</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="p-2">Trivial</td><td class="p-2">100 pts</td><td class="p-2">{{ tier_counts.Trivial if tier_counts is defined else 0 }}</td></tr>
+                            <tr><td class="p-2">Medium</td><td class="p-2">150 pts</td><td class="p-2">{{ tier_counts.Medium if tier_counts is defined else 0 }}</td></tr>
+                            <tr><td class="p-2">High</td><td class="p-2">200 pts</td><td class="p-2">{{ tier_counts.High if tier_counts is defined else 0 }}</td></tr>
+                        </tbody>
+                    </table>
+                </noscript>
+            </div>
+
+            <div class="bg-[#161b22] border border-[#30363d] rounded-lg p-5">
+                <h2 class="text-lg font-semibold text-white mb-1">Contributor Growth &amp; Points Earned</h2>
+                <p class="text-xs text-[#8b949e] mb-4">Time-series onboarding and cumulative Wave points across top ecosystem contributors.</p>
+                <div class="relative h-64 w-full">
+                    <canvas id="contributorGrowthChart" aria-label="Contributor growth chart" role="img"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabular Fallback & Detailed Data Views -->
+        <div class="section bg-[#161b22] border border-[#30363d] rounded-lg p-5 overflow-x-auto">
+            <h2 class="text-lg font-semibold text-white mb-2">Repositories</h2>
+            <p class="text-xs text-[#8b949e] mb-4">Explore Drips Wave approved repos and health scores.</p>
+            <table class="w-full text-left text-sm border-collapse">
+                <thead>
+                    <tr class="border-b border-[#30363d] bg-[#1c2129] text-xs uppercase text-[#8b949e]">
+                        <th class="p-3">Name</th><th class="p-3">Language</th><th class="p-3">Multiplier</th><th class="p-3">Health Score</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#30363d]">
+                    {% for repo in repos %}
+                    <tr><td class="p-3 font-medium text-white">{{ repo.name }}</td><td class="p-3">{{ repo.language }}</td><td class="p-3">{{ repo.multiplier }}x</td><td class="p-3">{{ repo.health_score }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="p-3 text-[#8b949e]">No repositories loaded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section bg-[#161b22] border border-[#30363d] rounded-lg p-5 overflow-x-auto">
+            <h2 class="text-lg font-semibold text-white mb-2">Issues</h2>
+            <p class="text-xs text-[#8b949e] mb-4">Find open Wave issues across all repos.</p>
+            <table class="w-full text-left text-sm border-collapse">
+                <thead>
+                    <tr class="border-b border-[#30363d] bg-[#1c2129] text-xs uppercase text-[#8b949e]">
+                        <th class="p-3">Title</th><th class="p-3">Complexity</th><th class="p-3">Points</th><th class="p-3">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-[#30363d]">
+                    {% for issue in issues %}
+                    <tr><td class="p-3"><a href="{{ issue.url }}" class="text-purple-400 hover:underline">{{ issue.title }}</a></td><td class="p-3">{{ issue.complexity }}</td><td class="p-3">{{ issue.points }}</td><td class="p-3">{{ 'Claimed' if issue.is_claimed else 'Open' }}</td></tr>
+                    {% else %}
+                    <tr><td colspan="4" class="p-3 text-[#8b949e]">No issues loaded yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section bg-[#161b22] border border-[#30363d] rounded-lg p-5 overflow-x-auto">
+            <h2 class="text-lg font-semibold text-white mb-2">Leaderboard</h2>
+            <p class="text-xs text-[#8b949e] mb-3">Top contributors.</p>
+            <a href="/contributors/top" class="text-sm text-purple-400 hover:underline">View Leaderboard JSON</a>
+        </div>
     </div>
-    <div class="section">
-        <h2>Issues</h2>
-        <p>Find open Wave issues across all repos.</p>
-        <table border="1" cellpadding="5" cellspacing="0" width="100%">
-            <thead><tr><th>Title</th><th>Complexity</th><th>Points</th><th>Status</th></tr></thead>
-            <tbody>
-                {% for issue in issues %}
-                <tr><td><a href="{{ issue.url }}">{{ issue.title }}</a></td><td>{{ issue.complexity }}</td><td>{{ issue.points }}</td><td>{{ 'Claimed' if issue.is_claimed else 'Open' }}</td></tr>
-                {% else %}
-                <tr><td colspan="4">No issues loaded yet.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <div class="section">
-        <h2>Leaderboard</h2>
-        <p>Top contributors.</p>
-        <a href="/contributors/top">View Leaderboard JSON</a>
-    </div>
+
+    <script>
+      async function initDashboardCharts() {
+        if (typeof Chart === "undefined") return;
+        try {
+          const [issuesResp, leaderboardResp] = await Promise.all([
+            fetch("/issues?limit=100"),
+            fetch("/leaderboard?limit=10")
+          ]);
+          const issuesData = issuesResp.ok ? await issuesResp.json() : [];
+          const contributorsData = leaderboardResp.ok ? await leaderboardResp.json() : [];
+
+          const tierCounts = { Trivial: 0, Medium: 0, High: 0 };
+          issuesData.forEach((item) => {
+            const c = item.complexity || "Medium";
+            if (tierCounts[c] !== undefined) tierCounts[c] += 1;
+          });
+
+          const distCtx = document.getElementById("pointsDistributionChart");
+          if (distCtx) {
+            new Chart(distCtx, {
+              type: "bar",
+              data: {
+                labels: ["Trivial (100 pts)", "Medium (150 pts)", "High (200 pts)"],
+                datasets: [{
+                  label: "Tracked Issues",
+                  data: [tierCounts.Trivial, tierCounts.Medium, tierCounts.High],
+                  backgroundColor: ["#34d399", "#a78bfa", "#f472b6"]
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: false }
+            });
+          }
+
+          const growthCtx = document.getElementById("contributorGrowthChart");
+          if (growthCtx) {
+            new Chart(growthCtx, {
+              type: "line",
+              data: {
+                labels: contributorsData.map((c) => c.github_username),
+                datasets: [{
+                  label: "Cumulative Wave Points",
+                  data: contributorsData.map((c) => c.points_earned),
+                  borderColor: "#a78bfa",
+                  tension: 0.3
+                }]
+              },
+              options: { responsive: true, maintainAspectRatio: false }
+            });
+          }
+        } catch (err) {
+          console.warn("Dashboard chart load fallback:", err);
+        }
+      }
+      window.addEventListener("DOMContentLoaded", initDashboardCharts);
+    </script>
 </body>
 </html>
