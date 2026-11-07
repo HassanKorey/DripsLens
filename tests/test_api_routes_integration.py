@@ -238,3 +238,31 @@ async def test_offline_fallback_mode_github_rate_limit_graceful():
         mock_get.return_value = resp_403
         issues = await fetch_issues_for_repo("HassanKorey/DripsLens")
         assert issues == []
+
+
+@pytest.mark.asyncio
+async def test_openapi_schema_enriched_metadata_and_examples(async_client: AsyncClient):
+    """Verify /openapi.json exposes route summaries, descriptions, and query parameter examples."""
+    response = await async_client.get("/openapi.json")
+    assert response.status_code == 200
+    schema = response.json()
+    paths = schema.get("paths", {})
+
+    assert "/health" in paths
+    assert "summary" in paths["/health"]["get"]
+    assert "description" in paths["/health"]["get"]
+
+    repos_get = paths["/repos"]["get"]
+    assert repos_get["summary"] == "List tracked Wave repositories"
+    repo_param_names = {p["name"]: p for p in repos_get.get("parameters", [])}
+    assert {"language", "multiplier", "skip", "limit"}.issubset(repo_param_names.keys())
+    assert "examples" in repo_param_names["language"]["schema"] or "examples" in repo_param_names["language"]
+
+    issues_get = paths["/issues"]["get"]
+    assert issues_get["summary"] == "List tracked Wave bounty issues"
+    issue_param_names = {p["name"]: p for p in issues_get.get("parameters", [])}
+    assert {"complexity", "is_claimed", "skip", "limit"}.issubset(issue_param_names.keys())
+
+    leaderboard_get = paths["/leaderboard"]["get"]
+    assert leaderboard_get["summary"] == "Get top ecosystem contributors"
+
